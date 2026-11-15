@@ -232,3 +232,9 @@ label.f > span { display: block; font-size: 13px; font-weight: 700; color: var(-
 .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
 .dot.g { background: var(--green); } .dot.o { background: var(--orange); } .dot.r { background: var(--red); }
 .legend { margin-top: 16px; font-size: 14px; display: grid; gap: 5px; }
+
+/* Health grade badge */
+.gr { display: inline-flex; align-items: center; justify-content: center; width: 1.55em; height: 1.55em; border-radius: 7px; font-size: 13px; font-weight: 800; color: #fff; vertical-align: middle; flex: none; line-height: 1; }
+.gr-A { background: #2E8B3E; } .gr-B { background: #7DBB3C; } .gr-C { background: #F2C230; color: #4A3A00; } .gr-D { background: #EE8A2B; } .gr-E { background: #E0463C; }
+.bigkcal .gr, .mtitle .gr { font-size: 16px; margin-left: 6px; }
+.hero .gr { box-shadow: 0 0 0 2px rgba(255, 255, 255, .7); }

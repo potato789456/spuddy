@@ -87,6 +87,24 @@ function suggestGoal(p) {
 }
 const backupDue = () => S.lastBackup ? S.lastBackup <= addDays(today(), -7) : Object.keys(S.log).length >= 3;
 
+/* ---------- health grade ---------- */
+const isNum = v => typeof v === 'number' && v >= 0;
+function gradeOf(f) {
+  if (!f) return null;
+  if (!f.custom && f.gr !== undefined) return f.gr;                       // built-in food
+  if (/^[a-e]$/i.test(f.grade || '')) return f.grade.toUpperCase();       // official grade from the barcode database
+  if (isNum(f.su) && isNum(f.sf) && isNum(f.sa)) return nutriGrade({ kcal: f.kcal, p: f.p, f: f.f, fi: f.fi || 0, su: f.su, sf: f.sf, sa: f.sa });
+  return null;
+}
+function entryGrade(e) { const f = getFood(e.foodId); return f ? gradeOf(f) : (e.gr || null); }
+// Grade for a meal or a day: average of the food grades, weighted by calories.
+function mixGrade(es) {
+  let w = 0, sum = 0, tot = 0;
+  es.forEach(e => { tot += e.kcal; const g = entryGrade(e); if (g) { w += e.kcal; sum += e.kcal * 'EDCBA'.indexOf(g); } });
+  return w > 0 && w >= tot * 0.5 ? 'EDCBA'[Math.round(sum / w)] : null;
+}
+const badge = g => g ? `<span class="gr gr-${g}">${g}</span>` : '';
+
 /* ---------- rewards ---------- */
 function settleRewards() {
   const t = today(), msgs = [];
@@ -149,7 +167,7 @@ function viewToday() {
   <div class="card hero ${over ? 'over' : ''}"><div class="summary">
     <div class="ring"><svg width="132" height="132" viewBox="0 0 132 132"><circle class="track" cx="66" cy="66" r="56" fill="none" stroke-width="13"/><circle class="prog" cx="66" cy="66" r="56" fill="none" stroke-width="13" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
       <div class="mid"><b>${Math.abs(left)}</b><span>kcal ${over ? 'over' : 'left'}</span></div></div>
-    <div class="sumside"><div class="line"><span>Eaten</span><b>${Math.round(t.kcal)}</b></div><div class="line"><span>Goal</span><b>${g.kcal}</b></div></div>
+    <div class="sumside"><div class="line"><span>Eaten</span><b>${Math.round(t.kcal)}</b></div><div class="line"><span>Goal</span><b>${g.kcal}</b></div><div class="line"><span>Food quality</span><b>${badge(mixGrade(dayLog(day))) || '–'}</b></div></div>
   </div><div class="macros">${macroBar('Protein', t.p, g.p)}${macroBar('Carbs', t.c, g.c)}${macroBar('Fat', t.f, g.f)}${macroBar('Fiber', t.fi, g.fi)}</div></div>
   <div class="daynav"><button data-a="day" data-d="-1" aria-label="Previous day">‹</button><button class="daybtn" data-a="openCal">${niceDate(day)} <span class="caret">▾</span></button><button data-a="day" data-d="1" aria-label="Next day" ${day >= today() ? 'disabled' : ''}>›</button></div>
   ${backupDue() ? `<div class="card"><b>🥔 Time for a backup</b><p class="muted small" style="margin:6px 0 12px">${S.lastBackup ? 'Your last backup was on ' + niceDate(S.lastBackup) + '.' : "You haven't saved a backup yet."} It keeps your foods, your days and your potato safe.</p><button class="btn sm" data-a="exportData">Save backup  +5 ${COIN}</button></div>` : ''}
@@ -259,10 +277,10 @@ function sheetMeal(id) {
   const C = 2 * Math.PI * 30;
   const ring = (label, val, goal, color) => `<div class="mring"><div class="rw"><svg width="72" height="72" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-opacity=".22" stroke-width="7"/><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - (goal ? Math.min(1, val / goal) : 0))}" transform="rotate(-90 38 38)"/></svg><div class="rm"><b>${Math.round(val)}</b><span>/${Math.round(goal)} g</span></div></div><div class="rl">${label}</div></div>`;
   openSheet(`<div class="sh-head"><button class="chip" data-a="openAdd" data-meal="${id}">＋ Add more food</button><span class="grow"></span><button class="btn sm donebtn" data-a="closeSheet">Done</button></div>
-  <div class="sh-body"><h2 class="mtitle">${name}</h2><p class="center muted" style="margin-bottom:8px">${niceDate(day)} · <b style="color:var(--ink)">${Math.round(m.kcal)}</b> / ${budget} kcal</p>
+  <div class="sh-body"><h2 class="mtitle">${name} ${badge(mixGrade(es))}</h2><p class="center muted" style="margin-bottom:8px">${niceDate(day)} · <b style="color:var(--ink)">${Math.round(m.kcal)}</b> / ${budget} kcal</p>
   <div class="bar mbar"><i style="width:${budget ? Math.min(100, m.kcal / budget * 100) : 0}%;background:${over ? 'var(--red)' : 'var(--green)'}"></i></div>
   <div class="mrings">${ring('Protein', m.p, g.p * sh, '#F06A5E')}${ring('Carbs', m.c, g.c * sh, '#FF9F45')}${ring('Fat', m.f, g.f * sh, '#6FA8F5')}${ring('Fiber', m.fi, g.fi * sh, '#6DBE5A')}</div>
-  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('')
+  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)} ${badge(entryGrade(e))}</div><div class="d">${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('')
       : `<p class="center muted" style="margin-top:26px">Nothing logged for ${name.toLowerCase()} yet.</p>`}</div>`, false, 'meal');
 }
 
@@ -271,8 +289,8 @@ function sheetMeal(id) {
 function dayMark(d) {
   if (!hasLog(d)) return null;
   const t = totals(d), g = S.goal, over = t.kcal - g.kcal;
-  const pts = (over <= 0 && t.kcal >= g.kcal * 0.75 ? 1 : 0) + (t.p >= g.p * 0.8 ? 1 : 0) + (t.fi >= g.fi * 0.8 ? 1 : 0);
-  return { color: over <= 0 ? 'g' : over <= 100 ? 'o' : 'r', pts, face: ['😕', '😐', '🙂', '😄'][pts] };
+  const gr = mixGrade(dayLog(d));
+  return { color: over <= 0 ? 'g' : over <= 100 ? 'o' : 'r', gr, face: gr ? { A: '😄', B: '😄', C: '🙂', D: '😐', E: '😕' }[gr] : '' };
 }
 function sheetCal() {
   const [y, m] = calMonth.split('-').map(Number), first = new Date(y, m - 1, 1), n = new Date(y, m, 0).getDate(), t = today();
@@ -284,7 +302,7 @@ function sheetCal() {
   openSheet(`<div class="sh-head"><button class="x" data-a="calNav" data-d="-1" aria-label="Previous month">‹</button><h2 class="center">${first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2><button class="x" data-a="calNav" data-d="1" aria-label="Next month" ${calMonth >= t.slice(0, 7) ? 'disabled' : ''}>›</button><button class="x" data-a="closeSheet" aria-label="Close">✕</button></div>
   <div class="sh-body"><div class="cal wk">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(w => `<b>${w}</b>`).join('')}</div><div class="cal">${cells}</div>
   <div class="legend"><div><i class="dot g"></i> At or under the calorie goal</div><div><i class="dot o"></i> Up to 100 kcal over</div><div><i class="dot r"></i> More than 100 kcal over</div>
-  <div class="muted small" style="margin-top:8px">The face counts three daily checks: calories on target (not over, and at least 75% of the goal), protein at 80% of the goal or more, fiber at 80% of the goal or more.<br>😄 all three · 🙂 two · 😐 one · 😕 none. Today gets its face once the day is over.</div></div></div>`, true);
+  <div class="muted small" style="margin-top:8px">The face shows the food quality of the day, from the A–E health grades of what was eaten: 😄 A or B · 🙂 C · 😐 D · 😕 E. Today gets its face once the day is over.</div></div></div>`, true);
 }
 
 /* Add food: search list */
@@ -297,7 +315,7 @@ function sheetAdd() {
   renderFoodList('');
 }
 function foodRow(f) {
-  return `<div class="row" style="gap:6px"><button class="food grow" data-a="pick" data-id="${esc(f.id)}"><div class="grow"><div class="n">${esc(f.name)}</div><div class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}per 100 g</div></div><div class="k">${Math.round(f.kcal)} kcal</div></button>${f.custom ? `<button class="edit" style="margin-bottom:8px" data-a="editFood" data-id="${esc(f.id)}" aria-label="Edit food">✏️</button>` : ''}</div>`;
+  return `<div class="row" style="gap:6px"><button class="food grow" data-a="pick" data-id="${esc(f.id)}"><div class="grow"><div class="n">${esc(f.name)}</div><div class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}per 100 g</div></div>${badge(gradeOf(f))}<div class="k">${Math.round(f.kcal)} kcal</div></button>${f.custom ? `<button class="edit" style="margin-bottom:8px" data-a="editFood" data-id="${esc(f.id)}" aria-label="Edit food">✏️</button>` : ''}</div>`;
 }
 function myFoods() {
   const ids = new Set([...Object.keys(S.foods), ...Object.keys(S.uses)]);
@@ -322,7 +340,7 @@ function sheetAmount(food, entry) {
   const f = food;
   openSheet(`${shHead(esc(f.name))}
   <div class="sh-body">
-  <div class="bigkcal"><span id="a-kcal">0</span> <span style="font-size:18px" class="muted">kcal</span></div>
+  <div class="bigkcal"><span id="a-kcal">0</span> <span style="font-size:18px" class="muted">kcal</span> ${badge(gradeOf(f))}</div>
   <div class="tri four"><div><b id="a-p">0</b><span class="muted small">protein</span></div><div><b id="a-c">0</b><span class="muted small">carbs</span></div><div><b id="a-f">0</b><span class="muted small">fat</span></div><div><b id="a-fi">0</b><span class="muted small">fiber</span></div></div>
   <label class="f"><span>How much?</span><input class="inp" id="amount" inputmode="decimal" value="${cur.amount}"></label>
   ${f.serving ? `<div class="seg" style="margin-bottom:14px"><button data-a="unit" data-u="s">${esc(f.serving.label)} (${f.serving.g} g)</button><button data-a="unit" data-u="g">grams</button></div>` : ''}
@@ -357,6 +375,12 @@ function sheetFood(f, note) {
   <label class="f"><span>Fat (g)</span><input class="inp" id="f-f" inputmode="decimal" value="${v(f.f)}"></label></div>
   <div class="grid2"><label class="f"><span>Fiber (g, optional)</span><input class="inp" id="f-fi" inputmode="decimal" value="${v(f.fi)}"></label>
   <label class="f"><span>One portion (g, optional)</span><input class="inp" id="f-serv" inputmode="decimal" value="${v(f.serving && f.serving.g)}" placeholder="e.g. 250"></label></div>
+  <p class="listhead" style="margin-top:4px">For the health grade (optional, per 100 g)</p>
+  <div class="grid2" style="grid-template-columns:1fr 1fr 1fr"><label class="f"><span>Sugars (g)</span><input class="inp" id="f-su" inputmode="decimal" value="${v(f.su)}"></label>
+  <label class="f"><span>Saturated fat (g)</span><input class="inp" id="f-sf" inputmode="decimal" value="${v(f.sf)}"></label>
+  <label class="f"><span>Salt (g)</span><input class="inp" id="f-sa" inputmode="decimal" value="${v(f.sa)}"></label></div>
+  <p class="muted small" style="margin:-4px 0 12px">${/^[a-e]$/i.test(f.grade || '') ? 'This product has an official grade from the barcode database: ' + badge(f.grade.toUpperCase()) : 'Fill in all three to get an A–E grade for this food.'}</p>
+  <input type="hidden" id="f-grade" value="${v(f.grade)}">
   <label class="f"><span>Barcode (optional)</span><input class="inp" id="f-barcode" inputmode="numeric" value="${v(f.barcode)}"></label>
   <button class="btn" data-a="saveFood">Save food</button>
   ${f.id ? '<button class="btn danger" style="margin-top:10px" data-a="delFood">Delete food</button>' : ''}</div>`);
@@ -396,13 +420,13 @@ async function onCode(code) {
   const h = $('#scanhint'); if (h) h.textContent = 'Looking up ' + code + '…';
   let found = null;
   try {
-    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_sk,brands,nutriments,serving_quantity`);
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,product_name_sk,brands,nutriments,serving_quantity,nutriscore_grade`);
     const j = await res.json();
     if (j && j.status === 1 && j.product) {
       const p = j.product, n = p.nutriments || {};
       const kcal = n['energy-kcal_100g'] != null ? num(n['energy-kcal_100g']) : (n['energy_100g'] != null ? num(n['energy_100g']) / 4.184 : NaN);
       const sq = num(p.serving_quantity);
-      found = { name: p.product_name_sk || p.product_name || '', brand: (p.brands || '').split(',')[0].trim(), kcal: isNaN(kcal) ? '' : Math.round(kcal), p: r1(num(n.proteins_100g)), c: r1(num(n.carbohydrates_100g)), f: r1(num(n.fat_100g)), fi: r1(num(n.fiber_100g)), serving: sq > 0 ? { g: sq } : null, barcode: code };
+      found = { name: p.product_name_sk || p.product_name || '', brand: (p.brands || '').split(',')[0].trim(), kcal: isNaN(kcal) ? '' : Math.round(kcal), p: r1(num(n.proteins_100g)), c: r1(num(n.carbohydrates_100g)), f: r1(num(n.fat_100g)), fi: r1(num(n.fiber_100g)), su: r1(num(n.sugars_100g)), sf: r1(num(n['saturated-fat_100g'])), sa: Math.round(num(n.salt_100g) * 100) / 100, grade: /^[a-e]$/i.test(p.nutriscore_grade || '') ? p.nutriscore_grade : '', serving: sq > 0 ? { g: sq } : null, barcode: code };
     }
   } catch (e) { }
   if (found) sheetFood(found, '✅ Found it! Please check the numbers against the label, then save — next time it will be in your foods.');
@@ -438,7 +462,7 @@ const A = {
   saveEntry() {
     const g = curGrams(); if (!(g > 0)) return toast('Enter an amount first');
     const f = cur.food, k = g / 100;
-    const data = { foodId: f.id, name: f.name + (f.brand ? ' (' + f.brand + ')' : ''), meal: cur.meal, grams: g, kcal: f.kcal * k, p: f.p * k, c: f.c * k, f: f.f * k, fi: (f.fi || 0) * k };
+    const data = { foodId: f.id, name: f.name + (f.brand ? ' (' + f.brand + ')' : ''), meal: cur.meal, grams: g, kcal: f.kcal * k, p: f.p * k, c: f.c * k, f: f.f * k, fi: (f.fi || 0) * k, gr: gradeOf(f) };
     if (cur.entry) Object.assign(cur.entry, data, { name: cur.entry.name });
     else {
       (S.log[day] || (S.log[day] = [])).push(Object.assign({ id: uid() }, data));
@@ -458,8 +482,9 @@ const A = {
     if (!name) return toast('Give it a name');
     if (!(kcal >= 0)) return toast('Enter the calories per 100 g');
     const z = id => { const n = num($(id).value); return n >= 0 ? n : 0; };
+    const opt = id => { const n = num($(id).value); return n >= 0 ? n : null; };
     const sg = num($('#f-serv').value), id = $('#f-id').value || 'c:' + uid();
-    const f = { id, custom: true, name, brand: $('#f-brand').value.trim(), kcal, p: z('#f-p'), c: z('#f-c'), f: z('#f-f'), fi: z('#f-fi'), serving: sg > 0 ? { label: '1 portion', g: sg } : null, barcode: $('#f-barcode').value.replace(/\D/g, '') };
+    const f = { id, custom: true, name, brand: $('#f-brand').value.trim(), kcal, p: z('#f-p'), c: z('#f-c'), f: z('#f-f'), fi: z('#f-fi'), su: opt('#f-su'), sf: opt('#f-sf'), sa: opt('#f-sa'), grade: $('#f-grade').value, serving: sg > 0 ? { label: '1 portion', g: sg } : null, barcode: $('#f-barcode').value.replace(/\D/g, '') };
     const isNew = !S.foods[id];
     S.foods[id] = f; save();
     if (isNew) { toast('Saved to My foods 🥔'); sheetAmount(f); } else sheetAdd();

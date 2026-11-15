@@ -168,9 +168,81 @@ const FIBER = {
   'Orange juice': 0.2, 'Apple juice': 0.2, 'Oat milk': 0.8, 'Almond milk, unsweetened': 0.2, 'Soy milk, unsweetened': 0.4,
 };
 
-const BASE = BASE_RAW.map(r => ({
-  id: 'b:' + r[0].toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-  name: r[0], kcal: r[1], p: r[2], c: r[3], f: r[4], fi: FIBER[r[0]] || 0,
-  serving: r[5] ? { label: r[5], g: r[6] } : null,
-}));
+// For the health grade: [sugars g, saturated fat g, salt g, fruit/veg/pulses/nuts %, type] per 100 g.
+// type: 'bev' = drink, 'fat' = oil or butter, 'cheese', 'none' = not graded (alcohol). Foods not listed: all zero.
+const FV = 100;
+const NUTRI = {
+  'Egg, whole': [0.4, 3.1, 0.36], 'Egg, boiled': [1.1, 3.3, 0.31], 'Egg white': [0.7, 0, 0.42],
+  'Chicken breast, raw': [0, 0.6, 0.11], 'Chicken breast, cooked': [0, 1, 0.19], 'Chicken thigh, cooked (skinless)': [0, 3, 0.22],
+  'Turkey breast, cooked': [0, 0.3, 0.13], 'Beef, lean ground (5% fat), cooked': [0, 2.9, 0.16], 'Beef, ground (15% fat), cooked': [0, 5.9, 0.18],
+  'Beef steak, sirloin, cooked': [0, 4, 0.14], 'Pork tenderloin, cooked': [0, 1.2, 0.14], 'Ham, sliced': [1, 1.3, 2.6], 'Bacon, cooked': [0, 14, 4.3],
+  'Salmon': [0, 3.1, 0.15], 'Tuna, canned in water': [0, 0.2, 0.8], 'Cod': [0, 0.1, 0.14], 'Shrimp, cooked': [0, 0.1, 0.28],
+  'Tofu, firm': [0.6, 1.3, 0.04], 'Lentils, cooked': [1.8, 0.1, 0.01, FV], 'Chickpeas, cooked': [4.8, 0.3, 0.02, FV],
+  'Kidney beans, cooked': [0.3, 0.1, 0.01, FV], 'Black beans, cooked': [0.3, 0.1, 0.01, FV], 'Whey protein powder (typical)': [5, 3, 0.5],
+  'Milk, whole (3.5%)': [4.8, 1.9, 0.11], 'Milk, semi-skimmed (1.5%)': [4.9, 0.9, 0.11], 'Milk, skimmed': [5, 0.1, 0.11],
+  'Greek yogurt, 0% fat': [3.6, 0.1, 0.09], 'Greek yogurt, full fat': [4, 3.2, 0.09], 'Yogurt, plain': [4.7, 2.1, 0.12],
+  'Cottage cheese': [2.7, 1.7, 0.9, 0, 'cheese'], 'Cottage cheese, low fat': [2.7, 0.6, 0.9, 0, 'cheese'], 'Quark (tvaroh), low fat': [4, 0.2, 0.1, 0, 'cheese'],
+  'Cheddar cheese': [0.5, 19, 1.6, 0, 'cheese'], 'Edam / Gouda cheese': [1.4, 17.6, 2, 0, 'cheese'], 'Mozzarella': [1, 13, 1.2, 0, 'cheese'],
+  'Feta cheese': [4, 15, 2.8, 0, 'cheese'], 'Parmesan': [0.8, 19, 2.9, 0, 'cheese'], 'Cream cheese': [3.2, 19, 0.8, 0, 'cheese'],
+  'Butter': [0.1, 51, 0.03, 0, 'fat'], 'Sour cream': [2.9, 11.5, 0.2], 'Heavy cream': [2.8, 23, 0.07],
+  'Rice, white, cooked': [0.1, 0.1, 0], 'Rice, white, dry': [0.1, 0.2, 0.01], 'Rice, brown, cooked': [0.2, 0.3, 0], 'Pasta, cooked': [0.6, 0.2, 0],
+  'Pasta, dry': [2.7, 0.3, 0.02], 'Oats, rolled': [1, 1.1, 0.02], 'Bread, white': [5, 0.7, 1.2], 'Bread, whole wheat': [4.3, 0.7, 1.1],
+  'Bread, rye': [3.9, 0.6, 1.5], 'Tortilla, wheat': [3, 2.5, 1.2], 'Quinoa, cooked': [0.9, 0.2, 0.02], 'Couscous, cooked': [0.1, 0, 0.01],
+  'Bulgur, cooked': [0.1, 0, 0.01], 'Buckwheat, cooked': [0.9, 0.1, 0.01], 'Potato, raw': [0.8, 0, 0.02], 'Potato, boiled': [0.9, 0, 0.01],
+  'Sweet potato, raw': [4.2, 0, 0.14], 'Sweet potato, baked': [6.5, 0.1, 0.09], 'Cornflakes': [8, 0.1, 1.3], 'Rice cakes': [0.9, 0.6, 0.3],
+  'Apple': [10.4, 0, 0, FV], 'Banana': [12.2, 0.1, 0, FV], 'Orange': [9.4, 0, 0, FV], 'Mandarin': [10.6, 0, 0, FV], 'Strawberries': [4.9, 0, 0, FV],
+  'Blueberries': [10, 0, 0, FV], 'Raspberries': [4.4, 0, 0, FV], 'Grapes': [15.5, 0.1, 0, FV], 'Watermelon': [6.2, 0, 0, FV], 'Pear': [9.8, 0, 0, FV],
+  'Peach': [8.4, 0, 0, FV], 'Plum': [9.9, 0, 0, FV], 'Kiwi': [9, 0, 0, FV], 'Pineapple': [9.9, 0, 0, FV], 'Mango': [13.7, 0.1, 0, FV],
+  'Cherries': [12.8, 0, 0, FV], 'Grapefruit': [7, 0, 0, FV], 'Lemon': [2.5, 0, 0, FV], 'Avocado': [0.7, 2.1, 0.02, FV], 'Dates': [66, 0, 0, FV], 'Raisins': [59, 0.1, 0.03, FV],
+  'Tomato': [2.6, 0, 0.01, FV], 'Cucumber': [1.7, 0, 0, FV], 'Carrot': [4.7, 0, 0.17, FV], 'Broccoli': [1.7, 0, 0.08, FV], 'Cauliflower': [1.9, 0.1, 0.08, FV],
+  'Spinach': [0.4, 0.1, 0.2, FV], 'Lettuce': [0.8, 0, 0.07, FV], 'Bell pepper': [4.2, 0, 0.01, FV], 'Onion': [4.2, 0, 0.01, FV], 'Garlic': [1, 0.1, 0.04, FV],
+  'Zucchini': [2.5, 0.1, 0.02, FV], 'Mushrooms': [2, 0.1, 0.01, FV], 'Green beans': [3.3, 0.1, 0.02, FV], 'Peas': [5.7, 0.1, 0.01, FV],
+  'Sweet corn': [6.3, 0.3, 0.04, FV], 'Cabbage': [3.2, 0, 0.05, FV], 'Eggplant': [3.5, 0, 0.01, FV], 'Beetroot': [6.8, 0, 0.2, FV],
+  'Asparagus': [1.9, 0, 0.01, FV], 'Radish': [1.9, 0, 0.1, FV], 'Pumpkin': [2.8, 0.1, 0, FV],
+  'Almonds': [4.4, 3.8, 0, FV], 'Walnuts': [2.6, 6.1, 0, FV], 'Cashews': [5.9, 7.8, 0.03, FV], 'Peanuts': [4.7, 6.3, 0.05, FV], 'Hazelnuts': [4.3, 4.5, 0, FV],
+  'Pistachios': [7.7, 5.9, 0, FV], 'Peanut butter': [9, 10, 0.9, FV], 'Chia seeds': [0, 3.3, 0.04], 'Flax seeds': [1.6, 3.7, 0.08],
+  'Sunflower seeds': [2.6, 4.5, 0.02], 'Pumpkin seeds': [1.4, 8.7, 0.02],
+  'Olive oil': [0, 14, 0, FV, 'fat'], 'Sunflower oil': [0, 10.3, 0, 0, 'fat'], 'Coconut oil': [0, 82, 0, 0, 'fat'],
+  'Olives': [0, 1.4, 3.9, FV], 'Hummus': [0.5, 1.4, 0.95, 50], 'Mayonnaise': [0.6, 11.7, 1.6],
+  'Honey': [82, 0, 0.01], 'Sugar': [100, 0, 0], 'Maple syrup': [60, 0, 0.03], 'Jam': [49, 0, 0.08], 'Dark chocolate (70%)': [24, 24.5, 0.05],
+  'Milk chocolate': [52, 18.5, 0.2], 'Ketchup': [22, 0, 2.3, 50], 'Mustard': [0.9, 0.2, 2.8],
+  'Orange juice': [8.4, 0, 0, FV, 'bev'], 'Apple juice': [9.6, 0, 0, FV, 'bev'], 'Coffee, black': [0, 0, 0, 0, 'bev'], 'Cola': [10.6, 0, 0.01, 0, 'bev'],
+  'Beer': [0, 0, 0, 0, 'none'], 'Wine, red': [0.6, 0, 0, 0, 'none'], 'Wine, white': [1, 0, 0, 0, 'none'],
+  'Oat milk': [4, 0.2, 0.1], 'Almond milk, unsweetened': [0, 0.1, 0.13], 'Soy milk, unsweetened': [0.4, 0.3, 0.1],
+};
+
+// Health grade A-E, calculated with the published Nutri-Score formula (2017 version) from values per 100 g.
+// x = { kcal, p, f (fat), fi (fiber), su (sugars), sf (saturated fat), sa (salt), fv (% fruit/veg/pulses/nuts), type }
+function nutriGrade(x) {
+  if (x.type === 'none') return null;
+  const pts = (v, steps) => steps.filter(t => v > t).length;
+  const seq = (start, step, n) => Array.from({ length: n }, (_, i) => start + i * step);
+  const kj = x.kcal * 4.184, sodium = (x.sa || 0) * 400, fv = x.fv || 0, bev = x.type === 'bev';
+  let bad, fvPts;
+  if (bev) {
+    bad = pts(kj, seq(0, 30, 10)) + pts(x.su || 0, seq(0, 1.5, 10)) + pts(x.sf || 0, seq(1, 1, 10)) + pts(sodium, seq(90, 90, 10));
+    fvPts = fv > 80 ? 10 : fv > 60 ? 4 : fv > 40 ? 2 : 0;
+  } else {
+    const satPts = x.type === 'fat' ? pts(x.f ? (x.sf || 0) / x.f * 100 : 0, seq(9.99, 6, 10)) : pts(x.sf || 0, seq(1, 1, 10));
+    bad = pts(kj, seq(335, 335, 10)) + pts(x.su || 0, [4.5, 9, 13.5, 18, 22.5, 27, 31, 36, 40, 45]) + satPts + pts(sodium, seq(90, 90, 10));
+    fvPts = fv > 80 ? 5 : fv > 60 ? 2 : fv > 40 ? 1 : 0;
+  }
+  const fiberPts = pts(x.fi || 0, [0.9, 1.9, 2.8, 3.7, 4.7]), proteinPts = pts(x.p || 0, [1.6, 3.2, 4.8, 6.4, 8]);
+  const countProtein = bad < 11 || x.type === 'cheese' || fvPts >= (bev ? 10 : 5);
+  const score = bad - fvPts - fiberPts - (countProtein ? proteinPts : 0);
+  if (bev) return score <= 1 ? 'B' : score <= 5 ? 'C' : score <= 9 ? 'D' : 'E';
+  return score <= -1 ? 'A' : score <= 2 ? 'B' : score <= 10 ? 'C' : score <= 18 ? 'D' : 'E';
+}
+
+const BASE = BASE_RAW.map(r => {
+  const n = NUTRI[r[0]] || [];
+  const f = {
+    id: 'b:' + r[0].toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    name: r[0], kcal: r[1], p: r[2], c: r[3], f: r[4], fi: FIBER[r[0]] || 0,
+    su: n[0] || 0, sf: n[1] || 0, sa: n[2] || 0, fv: n[3] || 0, type: n[4] || '',
+    serving: r[5] ? { label: r[5], g: r[6] } : null,
+  };
+  f.gr = nutriGrade(f);
+  return f;
+});
 const BASE_MAP = Object.fromEntries(BASE.map(f => [f.id, f]));
