@@ -36,6 +36,7 @@ let day = today();
 let cur = null;        // amount sheet state
 let addMeal = 'breakfast';
 let shopTab = 'clothes';
+const openMeals = new Set();
 let scanner = null, scanBusy = false;
 
 /* ---------- data helpers ---------- */
@@ -123,11 +124,17 @@ function viewToday() {
   const C = 2 * Math.PI * 56, pct = Math.min(1, t.kcal / (g.kcal || 1));
   const st = streakInfo();
   const mood = hasLog(today()) ? 'happy' : 'sleepy';
-  const meals = MEALS.map(([id, name, icon]) => {
+  const meals = MEALS.map(([id, name]) => {
     const es = dayLog(day).filter(e => e.meal === id);
-    const sum = Math.round(es.reduce((a, e) => a + e.kcal, 0));
-    return `<div class="card meal"><div class="row"><span class="mi">${icon}</span><div class="grow"><h3>${name}</h3><div class="muted small">${sum} kcal</div></div><button class="add" data-a="openAdd" data-meal="${id}" aria-label="Add food to ${name}">+</button></div>
-    ${es.length ? `<div class="entries">${es.map(e => `<button class="entry" data-a="editEntry" data-id="${e.id}">${esc(e.name)} <span class="muted">(${Math.round(e.kcal)} kcal)</span></button>`).join('')}</div>` : ''}</div>`;
+    const m = { kcal: 0, p: 0, c: 0, f: 0 };
+    es.forEach(e => { m.kcal += e.kcal; m.p += e.p; m.c += e.c; m.f += e.f; });
+    const open = openMeals.has(id) && es.length;
+    const list = !es.length ? '' : open
+      ? `<div class="mealsum"><div><b>${Math.round(m.kcal)}</b><span>kcal</span></div><div><b>${r1(m.p)} g</b><span>protein</span></div><div><b>${r1(m.c)} g</b><span>carbs</span></div><div><b>${r1(m.f)} g</b><span>fat</span></div></div>
+        ${es.map(e => `<button class="entry full" data-a="editEntry" data-id="${e.id}"><div class="grow"><div class="n">${esc(e.name)}</div><div class="d">${r1(e.grams)} g · P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)}</div></div><div class="k">${Math.round(e.kcal)} kcal</div></button>`).join('')}`
+      : `<div class="entries">${es.map(e => `<button class="entry" data-a="editEntry" data-id="${e.id}">${esc(e.name)} (${Math.round(e.kcal)} kcal)</button>`).join('')}</div>`;
+    return `<div class="card meal ${open ? 'open' : ''}"><div class="row" data-a="toggleMeal" data-meal="${id}"><div class="grow"><h3>${name}${es.length ? ' <span class="chev">›</span>' : ''}</h3><div class="muted small">${Math.round(m.kcal)} kcal</div></div><button class="add" data-a="openAdd" data-meal="${id}" aria-label="Add food to ${name}">+</button></div>
+    ${list}</div>`;
   }).join('');
   return `<div class="head"><button data-a="tab" data-tab="potato" aria-label="Open potato">${potatoSVG({ hat: S.equipped.hat, glasses: S.equipped.glasses }, mood, 46)}</button>
     <h1 class="grow">Spuddy</h1><span class="pill">🔥 ${st.n}</span><span class="pill">${COIN} ${S.coins}</span></div>
@@ -286,7 +293,7 @@ function updAmount() {
   document.querySelectorAll('#sheet .seg button').forEach(b => b.classList.toggle('on', b.dataset.u === cur.unit));
   const quick = cur.unit === 's' ? [0.5, 1, 2, 3] : [50, 100, 150, 200, 250];
   $('#quick').innerHTML = quick.map(v => `<button class="chip" data-a="quick" data-v="${v}">${v}${cur.unit === 's' ? '×' : ' g'}</button>`).join('');
-  $('#mealchips').innerHTML = MEALS.map(m => `<button class="chip ${cur.meal === m[0] ? 'on' : ''}" data-a="setMeal" data-meal="${m[0]}">${m[2]} ${m[1]}</button>`).join('');
+  $('#mealchips').innerHTML = MEALS.map(m => `<button class="chip ${cur.meal === m[0] ? 'on' : ''}" data-a="setMeal" data-meal="${m[0]}">${m[1]}</button>`).join('');
 }
 
 /* Food form (new / edit / from barcode) */
@@ -361,6 +368,7 @@ const A = {
   tab(el) { tab = el.dataset.tab; render(); window.scrollTo(0, 0); },
   day(el) { const d = addDays(day, +el.dataset.d); if (d <= today()) { day = d; render(); } },
   closeSheet,
+  toggleMeal(el) { const m = el.dataset.meal; if (openMeals.has(m)) openMeals.delete(m); else openMeals.add(m); const y = window.scrollY; render(); window.scrollTo(0, y); },
   openAdd(el) { addMeal = el.dataset.meal; sheetAdd(); },
   pick(el) { const f = getFood(el.dataset.id); if (f) sheetAmount(f); },
   newFood() { const q = $('#q'); sheetFood(q && q.value.trim() ? { name: q.value.trim() } : null); },

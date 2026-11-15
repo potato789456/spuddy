@@ -170,3 +170,18 @@ label.f > span { display: block; font-size: 13px; font-weight: 700; color: var(-
 .macrosum { border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
 .macrosum.ok { background: #E6F5E1; color: #2F7A22; }
 .macrosum.bad { background: #FDE5E2; color: #B83D31; }
+
+/* Meals: no icons, lighter food lines, tap the meal to expand */
+.meal > .row { cursor: pointer; }
+.entries { padding-left: 0; }
+.entry { font-weight: 400; color: #8A7663; }
+.chev { display: inline-block; color: var(--muted); font-weight: 600; margin-left: 4px; transition: transform .15s; }
+.meal.open .chev { transform: rotate(90deg); }
+.mealsum { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; background: #FFF6E9; border-radius: 14px; padding: 10px 4px; margin: 10px 0 4px; }
+.mealsum b { display: block; font-size: 15px; color: var(--ink); }
+.mealsum span { font-size: 12px; color: var(--muted); }
+.entry.full { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); white-space: normal; }
+.entry.full:first-of-type { border-top: 0; }
+.entry.full .n { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry.full .d { font-size: 13px; }
+.entry.full .k { color: var(--ink); font-weight: 600; white-space: nowrap; }
