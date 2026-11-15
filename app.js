@@ -62,6 +62,8 @@ function suggestGoal(p) {
   return { kcal, p: prot, c: carbs, f: fat };
 }
 
+const backupDue = () => S.lastBackup ? S.lastBackup <= addDays(today(), -7) : Object.keys(S.log).length >= 3;
+
 /* ---------- rewards ---------- */
 function settleRewards() {
   const t = today(), msgs = [];
@@ -126,6 +128,7 @@ function viewToday() {
       <div class="mid"><b>${Math.abs(left)}</b><span>kcal ${over ? 'over' : 'left'}</span></div></div>
     <div class="sumside"><div class="line"><span class="muted">Eaten</span><b>${Math.round(t.kcal)}</b></div><div class="line"><span class="muted">Goal</span><b>${g.kcal}</b></div></div>
   </div><div class="macros">${macroBar('Protein', t.p, g.p, '#F06A5E')}${macroBar('Carbs', t.c, g.c, '#FF9F45')}${macroBar('Fat', t.f, g.f, '#6FA8F5')}</div></div>
+  ${backupDue() ? `<div class="card"><b>🥔 Time for a backup</b><p class="muted small" style="margin:6px 0 12px">${S.lastBackup ? 'Your last backup was on ' + niceDate(S.lastBackup) + '.' : "You haven't saved a backup yet."} It keeps your foods, your days and your potato safe.</p><button class="btn sm" data-a="exportData">Save backup  +5 ${COIN}</button></div>` : ''}
   ${meals}`;
 }
 function potatoSays() {
@@ -146,7 +149,7 @@ function viewPotato() {
   <div class="card stage">${potatoSVG(S.equipped, hasLog(today()) ? 'happy' : 'sleepy', 240)}<div class="bubble">${potatoSays()}</div></div>
   <div class="card"><div class="earn"><b>How to earn coins</b>
     <div><span>Log food on a day</span><b>+10 ${COIN}</b></div><div><span>Finish a day on target</span><b>+10 ${COIN}</b></div>
-    <div><span>Streaks (3, 7, 14, 21, 30… days)</span><b>+5 ${COIN} per day</b></div></div></div>
+    <div><span>Streaks (3, 7, 14, 21, 30… days)</span><b>+5 ${COIN} per day</b></div><div><span>Weekly backup</span><b>+5 ${COIN}</b></div></div></div>
   ${shop}`;
 }
 function viewMe() {
@@ -169,7 +172,8 @@ function viewMe() {
     <label class="f"><span>Fat (g)</span><input class="inp" id="g-f" inputmode="numeric" value="${g.f}"></label></div>
     <p class="muted small" style="margin-bottom:12px">You can type any numbers you like — the suggestion is only a starting point.</p>
     <button class="btn" data-a="saveMe">${S.onboarded ? 'Save' : "Let's go!"}</button></div>
-  ${S.onboarded ? `<div class="card"><b>Backup</b><p class="muted small" style="margin:6px 0 12px">Everything lives on this phone only. Save a backup file now and then so nothing is lost if you change phones.</p>
+  ${S.onboarded ? `<div class="card"><b>Backup</b><p class="muted small" style="margin:6px 0 12px">Everything lives on this phone only. A backup file holds all your foods, every logged day and your potato with its clothes. Save it to Files / iCloud Drive about once a week.</p>
+    <p class="small" style="margin-bottom:12px"><b>Last backup:</b> ${S.lastBackup ? niceDate(S.lastBackup) : 'never'}</p>
     <div class="btns"><button class="btn ghost sm" data-a="exportData">Save backup</button><button class="btn ghost sm" data-a="importData">Restore</button></div>
     <input type="file" id="importFile" accept="application/json,.json" hidden></div>` : ''}`;
 }
@@ -390,12 +394,16 @@ const A = {
     render();
   },
   async exportData() {
+    const due = backupDue() || !S.lastBackup, prev = S.lastBackup;
+    S.lastBackup = today();
     const name = `spuddy-backup-${today()}.json`, text = JSON.stringify(S);
+    const done = () => { if (due) S.coins += 5; save(); render(); toast(due ? `Backup saved  +5 ${COIN}` : 'Backup saved ✓'); };
     try {
       const file = new File([text], name, { type: 'application/json' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) return await navigator.share({ files: [file] });
-    } catch (e) { if (e && e.name === 'AbortError') return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return done(); }
+    } catch (e) { if (e && e.name === 'AbortError') { S.lastBackup = prev; return; } }
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' })); a.download = name; a.click();
+    done();
   },
   importData() { $('#importFile').click(); },
 };
