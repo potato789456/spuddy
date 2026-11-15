@@ -299,13 +299,12 @@ function sheetAmount(food, entry) {
   if (!entry && food.serving) cur.unit = 's';
   const f = food;
   openSheet(`${shHead(esc(f.name))}
-  <div class="sh-body"><p class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}${Math.round(f.kcal)} kcal · P ${r1(f.p)} · C ${r1(f.c)} · F ${r1(f.f)} · Fiber ${r1(f.fi || 0)} per 100 g</p>
+  <div class="sh-body">
   <div class="bigkcal"><span id="a-kcal">0</span> <span style="font-size:18px" class="muted">kcal</span></div>
   <div class="tri four"><div><b id="a-p">0</b><span class="muted small">protein</span></div><div><b id="a-c">0</b><span class="muted small">carbs</span></div><div><b id="a-f">0</b><span class="muted small">fat</span></div><div><b id="a-fi">0</b><span class="muted small">fiber</span></div></div>
   <label class="f"><span>How much?</span><input class="inp" id="amount" inputmode="decimal" value="${cur.amount}"></label>
   ${f.serving ? `<div class="seg" style="margin-bottom:14px"><button data-a="unit" data-u="s">${esc(f.serving.label)} (${f.serving.g} g)</button><button data-a="unit" data-u="g">grams</button></div>` : ''}
   <div class="chips" id="quick" style="margin-bottom:16px"></div>
-  <label class="f"><span>Meal</span><div class="chips" id="mealchips"></div></label>
   <button class="btn" data-a="saveEntry">${entry ? 'Save' : 'Add'}</button>
   ${entry ? '<button class="btn danger" style="margin-top:10px" data-a="delEntry">Remove</button>' : ''}</div>`, true);
   updAmount();
@@ -318,7 +317,6 @@ function updAmount() {
   document.querySelectorAll('#sheet .seg button').forEach(b => b.classList.toggle('on', b.dataset.u === cur.unit));
   const quick = cur.unit === 's' ? [0.5, 1, 2, 3] : [50, 100, 150, 200, 250];
   $('#quick').innerHTML = quick.map(v => `<button class="chip" data-a="quick" data-v="${v}">${v}${cur.unit === 's' ? '×' : ' g'}</button>`).join('');
-  $('#mealchips').innerHTML = MEALS.map(m => `<button class="chip ${cur.meal === m[0] ? 'on' : ''}" data-a="setMeal" data-meal="${m[0]}">${m[1]}</button>`).join('');
 }
 
 /* Food form (new / edit / from barcode) */
@@ -406,7 +404,6 @@ const A = {
   lookup() { onCode($('#code').value); },
   unit(el) { cur.unit = el.dataset.u; $('#amount').value = cur.unit === 's' ? 1 : 100; updAmount(); },
   quick(el) { $('#amount').value = el.dataset.v; updAmount(); },
-  setMeal(el) { cur.meal = el.dataset.meal; updAmount(); },
   editEntry(el) {
     const e = dayLog(day).find(x => x.id === el.dataset.id); if (!e) return;
     const k = 100 / (e.grams || 100);
