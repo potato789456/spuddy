@@ -3,7 +3,7 @@
 const KEY = 'spuddy.v1';
 const MEALS = [['breakfast', 'Breakfast', '🍳'], ['lunch', 'Lunch', '🥗'], ['dinner', 'Dinner', '🍲'], ['snack', 'Snacks', '🍎']];
 const MILESTONES = [3, 7, 14, 21, 30, 45, 60, 90, 120, 180, 270, 365];
-const COIN = '🪙';
+const COIN = '<svg class="coin" viewBox="0 0 20 20" aria-label="coins"><circle cx="10" cy="10" r="9" fill="#FFC83D" stroke="#D9920A" stroke-width="1.6"/><circle cx="10" cy="10" r="5.4" fill="none" stroke="#EBA417" stroke-width="1.5"/><path d="M6.2 5.6 Q8 4.2 10 4.2" fill="none" stroke="#FFF1B8" stroke-width="1.4" stroke-linecap="round"/></svg>';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -48,6 +48,7 @@ let day = today();
 let cur = null;        // amount sheet state
 let addMeal = 'breakfast';
 let shopTab = 'clothes';
+let calMonth = null;
 let backToMeal = null;   // set while the meal page is open, so other sheets return to it
 const MEAL_SHARE = { breakfast: 0.3, lunch: 0.3, dinner: 0.3, snack: 0.1 };
 let scanner = null, scanBusy = false;
@@ -111,7 +112,7 @@ function settleRewards() {
 /* ---------- toast ---------- */
 let toastT;
 function toast(msg) {
-  const el = $('#toast'); el.textContent = msg; el.hidden = false;
+  const el = $('#toast'); el.innerHTML = msg; el.hidden = false;
   clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, 2800);
 }
 
@@ -150,7 +151,7 @@ function viewToday() {
       <div class="mid"><b>${Math.abs(left)}</b><span>kcal ${over ? 'over' : 'left'}</span></div></div>
     <div class="sumside"><div class="line"><span>Eaten</span><b>${Math.round(t.kcal)}</b></div><div class="line"><span>Goal</span><b>${g.kcal}</b></div></div>
   </div><div class="macros">${macroBar('Protein', t.p, g.p)}${macroBar('Carbs', t.c, g.c)}${macroBar('Fat', t.f, g.f)}${macroBar('Fiber', t.fi, g.fi)}</div></div>
-  <div class="daynav"><button data-a="day" data-d="-1" aria-label="Previous day">‹</button><b>${niceDate(day)}</b><button data-a="day" data-d="1" aria-label="Next day" ${day >= today() ? 'disabled' : ''}>›</button></div>
+  <div class="daynav"><button data-a="day" data-d="-1" aria-label="Previous day">‹</button><button class="daybtn" data-a="openCal">${niceDate(day)} <span class="caret">▾</span></button><button data-a="day" data-d="1" aria-label="Next day" ${day >= today() ? 'disabled' : ''}>›</button></div>
   ${backupDue() ? `<div class="card"><b>🥔 Time for a backup</b><p class="muted small" style="margin:6px 0 12px">${S.lastBackup ? 'Your last backup was on ' + niceDate(S.lastBackup) + '.' : "You haven't saved a backup yet."} It keeps your foods, your days and your potato safe.</p><button class="btn sm" data-a="exportData">Save backup  +5 ${COIN}</button></div>` : ''}
   ${meals}`;
 }
@@ -263,6 +264,27 @@ function sheetMeal(id) {
   <div class="mrings">${ring('Protein', m.p, g.p * sh, '#F06A5E')}${ring('Carbs', m.c, g.c * sh, '#FF9F45')}${ring('Fat', m.f, g.f * sh, '#6FA8F5')}${ring('Fiber', m.fi, g.fi * sh, '#6DBE5A')}</div>
   ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('')
       : `<p class="center muted" style="margin-top:26px">Nothing logged for ${name.toLowerCase()} yet.</p>`}</div>`, false, 'meal');
+}
+
+/* Calendar */
+// Dot: calories against the goal. Face: how many of three daily checks were met.
+function dayMark(d) {
+  if (!hasLog(d)) return null;
+  const t = totals(d), g = S.goal, over = t.kcal - g.kcal;
+  const pts = (over <= 0 && t.kcal >= g.kcal * 0.75 ? 1 : 0) + (t.p >= g.p * 0.8 ? 1 : 0) + (t.fi >= g.fi * 0.8 ? 1 : 0);
+  return { color: over <= 0 ? 'g' : over <= 100 ? 'o' : 'r', pts, face: ['😕', '😐', '🙂', '😄'][pts] };
+}
+function sheetCal() {
+  const [y, m] = calMonth.split('-').map(Number), first = new Date(y, m - 1, 1), n = new Date(y, m, 0).getDate(), t = today();
+  let cells = '<i></i>'.repeat((first.getDay() + 6) % 7);
+  for (let d = 1; d <= n; d++) {
+    const ds = `${calMonth}-${String(d).padStart(2, '0')}`, mk = dayMark(ds);
+    cells += `<button class="cd ${ds === day ? 'sel' : ''} ${ds === t ? 'now' : ''}" data-a="pickDay" data-d="${ds}" ${ds > t ? 'disabled' : ''}><span>${d}</span><em>${mk ? `<i class="dot ${mk.color}"></i>${ds < t ? mk.face : ""}` : ''}</em></button>`;
+  }
+  openSheet(`<div class="sh-head"><button class="x" data-a="calNav" data-d="-1" aria-label="Previous month">‹</button><h2 class="center">${first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2><button class="x" data-a="calNav" data-d="1" aria-label="Next month" ${calMonth >= t.slice(0, 7) ? 'disabled' : ''}>›</button><button class="x" data-a="closeSheet" aria-label="Close">✕</button></div>
+  <div class="sh-body"><div class="cal wk">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(w => `<b>${w}</b>`).join('')}</div><div class="cal">${cells}</div>
+  <div class="legend"><div><i class="dot g"></i> At or under the calorie goal</div><div><i class="dot o"></i> Up to 100 kcal over</div><div><i class="dot r"></i> More than 100 kcal over</div>
+  <div class="muted small" style="margin-top:8px">The face counts three daily checks: calories on target (not over, and at least 75% of the goal), protein at 80% of the goal or more, fiber at 80% of the goal or more.<br>😄 all three · 🙂 two · 😐 one · 😕 none. Today gets its face once the day is over.</div></div></div>`, true);
 }
 
 /* Add food: search list */
@@ -396,6 +418,9 @@ const A = {
     backToMeal = null; closeSheet();
   },
   openMeal(el) { sheetMeal(el.dataset.meal); },
+  openCal() { calMonth = day.slice(0, 7); sheetCal(); },
+  calNav(el) { const [y, m] = calMonth.split('-').map(Number); calMonth = dstr(new Date(y, m - 1 + (+el.dataset.d), 1)).slice(0, 7); sheetCal(); $('#sheet').style.animation = 'none'; },
+  pickDay(el) { day = el.dataset.d; closeSheet(); render(); window.scrollTo(0, 0); },
   openAdd(el) { addMeal = el.dataset.meal; sheetAdd(); },
   pick(el) { const f = getFood(el.dataset.id); if (f) sheetAmount(f); },
   newFood() { const q = $('#q'); sheetFood(q && q.value.trim() ? { name: q.value.trim() } : null); },
