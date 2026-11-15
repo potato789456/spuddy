@@ -97,7 +97,7 @@ label.f > span { display: block; font-size: 13px; font-weight: 700; color: var(-
   background: var(--bg); border-radius: 26px 26px 0 0; animation: up .22s ease-out;
 }
 #sheet.auto { height: auto; max-height: 92dvh; }
-@keyframes up { from { transform: translateY(40px); opacity: 0; } }
+@keyframes up { from { transform: translateY(40px); } }
 .sh-head { display: flex; align-items: center; gap: 10px; padding: 16px 16px 10px; }
 .sh-head h2 { flex: 1; font-size: 20px; font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .x { width: 36px; height: 36px; border-radius: 50%; background: var(--line); font-size: 17px; font-weight: 700; flex: none; }
@@ -185,3 +185,23 @@ label.f > span { display: block; font-size: 13px; font-weight: 700; color: var(-
 .entry.full .n { color: var(--ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entry.full .d { font-size: 13px; }
 .entry.full .k { color: var(--ink); font-weight: 600; white-space: nowrap; }
+
+/* Meal page */
+.entry { font-weight: 400; color: #8A7663; }
+.meal .chev { transform: none; }
+#sheet.mealsheet { height: 100dvh; border-radius: 0; background: #fff; padding-top: env(safe-area-inset-top); }
+.donebtn { width: auto; padding: 11px 22px; background: var(--ink); }
+.donebtn:active { background: #000; }
+.mtitle { text-align: center; font-size: 26px; font-weight: 800; margin: 10px 0 4px; }
+.mbar { max-width: 220px; margin: 0 auto 22px; height: 10px; }
+.mrings { display: flex; justify-content: center; gap: 22px; margin-bottom: 18px; }
+.mring { text-align: center; }
+.mring .rw { position: relative; width: 80px; height: 80px; }
+.mring .rm { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.mring .rm b { font-size: 18px; }
+.mring .rm span { font-size: 11px; color: var(--muted); }
+.mring .rl { font-size: 14px; margin-top: 4px; color: var(--muted); }
+.mfood { display: block; width: 100%; text-align: left; padding: 13px 2px; border-bottom: 1px solid var(--line); }
+.mfood .n { font-weight: 700; font-size: 17px; }
+.mfood .d { font-size: 15px; margin-top: 2px; }
+.mfood .d span { color: var(--muted); font-size: 13px; }

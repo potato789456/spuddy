@@ -36,7 +36,8 @@ let day = today();
 let cur = null;        // amount sheet state
 let addMeal = 'breakfast';
 let shopTab = 'clothes';
-const openMeals = new Set();
+let backToMeal = null;   // set while the meal page is open, so other sheets return to it
+const MEAL_SHARE = { breakfast: 0.3, lunch: 0.3, dinner: 0.3, snack: 0.1 };
 let scanner = null, scanBusy = false;
 
 /* ---------- data helpers ---------- */
@@ -126,15 +127,9 @@ function viewToday() {
   const mood = hasLog(today()) ? 'happy' : 'sleepy';
   const meals = MEALS.map(([id, name]) => {
     const es = dayLog(day).filter(e => e.meal === id);
-    const m = { kcal: 0, p: 0, c: 0, f: 0 };
-    es.forEach(e => { m.kcal += e.kcal; m.p += e.p; m.c += e.c; m.f += e.f; });
-    const open = openMeals.has(id) && es.length;
-    const list = !es.length ? '' : open
-      ? `<div class="mealsum"><div><b>${Math.round(m.kcal)}</b><span>kcal</span></div><div><b>${r1(m.p)} g</b><span>protein</span></div><div><b>${r1(m.c)} g</b><span>carbs</span></div><div><b>${r1(m.f)} g</b><span>fat</span></div></div>
-        ${es.map(e => `<button class="entry full" data-a="editEntry" data-id="${e.id}"><div class="grow"><div class="n">${esc(e.name)}</div><div class="d">${r1(e.grams)} g · P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)}</div></div><div class="k">${Math.round(e.kcal)} kcal</div></button>`).join('')}`
-      : `<div class="entries">${es.map(e => `<button class="entry" data-a="editEntry" data-id="${e.id}">${esc(e.name)} (${Math.round(e.kcal)} kcal)</button>`).join('')}</div>`;
-    return `<div class="card meal ${open ? 'open' : ''}"><div class="row" data-a="toggleMeal" data-meal="${id}"><div class="grow"><h3>${name}${es.length ? ' <span class="chev">›</span>' : ''}</h3><div class="muted small">${Math.round(m.kcal)} kcal</div></div><button class="add" data-a="openAdd" data-meal="${id}" aria-label="Add food to ${name}">+</button></div>
-    ${list}</div>`;
+    const sum = Math.round(es.reduce((a, e) => a + e.kcal, 0));
+    return `<div class="card meal"><div class="row" data-a="openMeal" data-meal="${id}"><div class="grow"><h3>${name} <span class="chev">›</span></h3><div class="muted small">${sum} / ${Math.round(S.goal.kcal * MEAL_SHARE[id])} kcal</div></div><button class="add" data-a="openAdd" data-meal="${id}" aria-label="Add food to ${name}">+</button></div>
+    ${es.length ? `<div class="entries">${es.map(e => `<button class="entry" data-a="editEntry" data-id="${e.id}">${esc(e.name)} (${Math.round(e.kcal)} kcal)</button>`).join('')}</div>` : ''}</div>`;
   }).join('');
   return `<div class="head"><button data-a="tab" data-tab="potato" aria-label="Open potato">${potatoSVG({ hat: S.equipped.hat, glasses: S.equipped.glasses }, mood, 46)}</button>
     <h1 class="grow">Spuddy</h1><span class="pill">🔥 ${st.n}</span><span class="pill">${COIN} ${S.coins}</span></div>
@@ -229,8 +224,8 @@ function readProfile() {
 }
 
 /* ---------- sheets ---------- */
-function openSheet(html, auto) {
-  const s = $('#sheet'); s.innerHTML = html; s.classList.toggle('auto', !!auto); s.hidden = false; $('#backdrop').hidden = false;
+function openSheet(html, auto, cls) {
+  const s = $('#sheet'); s.innerHTML = html; s.classList.toggle('auto', !!auto); s.classList.toggle('mealsheet', cls === 'meal'); s.hidden = false; $('#backdrop').hidden = false;
   // restart animation
   s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
 }
@@ -239,6 +234,23 @@ function closeSheet() {
   $('#sheet').hidden = true; $('#backdrop').hidden = true; $('#sheet').innerHTML = ''; cur = null;
 }
 const shHead = title => `<div class="sh-head"><h2>${title}</h2><button class="x" data-a="closeSheet" aria-label="Close">✕</button></div>`;
+
+/* Meal page: everything in one meal */
+function sheetMeal(id) {
+  backToMeal = id; addMeal = id;
+  const name = MEALS.find(m => m[0] === id)[1], es = dayLog(day).filter(e => e.meal === id), sh = MEAL_SHARE[id], g = S.goal;
+  const m = { kcal: 0, p: 0, c: 0, f: 0 };
+  es.forEach(e => { m.kcal += e.kcal; m.p += e.p; m.c += e.c; m.f += e.f; });
+  const budget = Math.round(g.kcal * sh), over = m.kcal > budget * 1.05;
+  const C = 2 * Math.PI * 30;
+  const ring = (label, val, goal, color) => `<div class="mring"><div class="rw"><svg width="80" height="80" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-opacity=".22" stroke-width="7"/><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - (goal ? Math.min(1, val / goal) : 0))}" transform="rotate(-90 38 38)"/></svg><div class="rm"><b>${Math.round(val)}</b><span>/${Math.round(goal)} g</span></div></div><div class="rl">${label}</div></div>`;
+  openSheet(`<div class="sh-head"><button class="chip" data-a="openAdd" data-meal="${id}">＋ Add more food</button><span class="grow"></span><button class="btn sm donebtn" data-a="closeSheet">Done</button></div>
+  <div class="sh-body"><h2 class="mtitle">${name}</h2><p class="center muted" style="margin-bottom:8px">${niceDate(day)} · <b style="color:var(--ink)">${Math.round(m.kcal)}</b> / ${budget} kcal</p>
+  <div class="bar mbar"><i style="width:${budget ? Math.min(100, m.kcal / budget * 100) : 0}%;background:${over ? 'var(--red)' : 'var(--green)'}"></i></div>
+  <div class="mrings">${ring('Protein', m.p, g.p * sh, '#F06A5E')}${ring('Carbs', m.c, g.c * sh, '#FF9F45')}${ring('Fat', m.f, g.f * sh, '#6FA8F5')}</div>
+  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)}</span></div></button>`).join('')
+      : `<p class="center muted" style="margin-top:26px">Nothing logged for ${name.toLowerCase()} yet.</p>`}</div>`, false, 'meal');
+}
 
 /* Add food: search list */
 function sheetAdd() {
@@ -367,8 +379,11 @@ async function onCode(code) {
 const A = {
   tab(el) { tab = el.dataset.tab; render(); window.scrollTo(0, 0); },
   day(el) { const d = addDays(day, +el.dataset.d); if (d <= today()) { day = d; render(); } },
-  closeSheet,
-  toggleMeal(el) { const m = el.dataset.meal; if (openMeals.has(m)) openMeals.delete(m); else openMeals.add(m); const y = window.scrollY; render(); window.scrollTo(0, y); },
+  closeSheet() {
+    if (backToMeal && !$('#sheet').classList.contains('mealsheet')) { stopScanner(); return sheetMeal(backToMeal); }
+    backToMeal = null; closeSheet();
+  },
+  openMeal(el) { sheetMeal(el.dataset.meal); },
   openAdd(el) { addMeal = el.dataset.meal; sheetAdd(); },
   pick(el) { const f = getFood(el.dataset.id); if (f) sheetAmount(f); },
   newFood() { const q = $('#q'); sheetFood(q && q.value.trim() ? { name: q.value.trim() } : null); },
@@ -394,11 +409,13 @@ const A = {
       const u = S.uses[f.id] || (S.uses[f.id] = { n: 0 }); u.n++;
     }
     save(); closeSheet(); render(); settleRewards(); render();
+    if (backToMeal) sheetMeal(backToMeal);
   },
   delEntry() {
     S.log[day] = dayLog(day).filter(e => e !== cur.entry);
     if (!S.log[day].length) delete S.log[day];
     save(); closeSheet(); render();
+    if (backToMeal) sheetMeal(backToMeal);
   },
   saveFood() {
     const name = $('#f-name').value.trim(), kcal = num($('#f-kcal').value);
