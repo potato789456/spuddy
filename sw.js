@@ -13,7 +13,8 @@ self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || url.hostname.includes('openfoodfacts')) return;
   e.respondWith(caches.open(CACHE).then(async cache => {
     const hit = await cache.match(e.request, { ignoreSearch: url.origin === location.origin });
-    const fresh = fetch(e.request).then(res => {
+    // 'no-cache' = always check with the server, so all files update together.
+    const fresh = fetch(e.request, url.origin === location.origin ? { cache: 'no-cache' } : {}).then(res => {
       if (res && (res.ok || res.type === 'opaque')) cache.put(e.request, res.clone());
       return res;
     });

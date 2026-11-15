@@ -21,14 +21,26 @@ function load() {
   try { s = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { }
   return Object.assign({
     profile: { sex: 'f', age: '', height: '', weight: '', activity: 1.375, pace: 0.5 },
-    goal: { kcal: 1800, p: 110, c: 205, f: 60 },
+    goal: { kcal: 1800, p: 110, c: 205, f: 60, fi: 25 },
     foods: {}, uses: {}, log: {}, coins: 0,
     owned: ['sprout', 'meadow'], equipped: { hat: 'sprout', bg: 'meadow' },
     rew: {}, ms: [], garden: [], onboarded: false,
   }, s);
 }
 let S = load();
-if (!Array.isArray(S.garden)) S.garden = [];
+normalize();
+// Fill in anything an older save or backup doesn't have yet (garden list, fiber).
+function normalize() {
+  if (!Array.isArray(S.garden)) S.garden = [];
+  if (!(S.goal.fi >= 0)) S.goal.fi = 25;
+  Object.values(S.foods).forEach(f => { if (!(f.fi >= 0)) f.fi = 0; });
+  Object.values(S.log).forEach(es => es.forEach(e => {
+    if (e.fi >= 0) return;
+    const f = S.foods[e.foodId] || BASE_MAP[e.foodId];
+    if (f && !('fi' in f)) return;   // food list not refreshed yet: try again on the next start
+    e.fi = f ? f.fi * e.grams / 100 : 0;
+  }));
+}
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage is full'); } };
 
 let tab = S.onboarded ? 'today' : 'me';
@@ -45,8 +57,8 @@ const getFood = id => S.foods[id] || BASE_MAP[id];
 const dayLog = d => S.log[d] || [];
 const hasLog = d => dayLog(d).length > 0;
 function totals(d) {
-  const t = { kcal: 0, p: 0, c: 0, f: 0 };
-  dayLog(d).forEach(e => { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; });
+  const t = { kcal: 0, p: 0, c: 0, f: 0, fi: 0 };
+  dayLog(d).forEach(e => { t.kcal += e.kcal; t.p += e.p; t.c += e.c; t.f += e.f; t.fi += e.fi || 0; });
   return t;
 }
 function streakInfo() {
@@ -137,7 +149,7 @@ function viewToday() {
     <div class="ring"><svg width="132" height="132" viewBox="0 0 132 132"><circle class="track" cx="66" cy="66" r="56" fill="none" stroke-width="13"/><circle class="prog" cx="66" cy="66" r="56" fill="none" stroke-width="13" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
       <div class="mid"><b>${Math.abs(left)}</b><span>kcal ${over ? 'over' : 'left'}</span></div></div>
     <div class="sumside"><div class="line"><span>Eaten</span><b>${Math.round(t.kcal)}</b></div><div class="line"><span>Goal</span><b>${g.kcal}</b></div></div>
-  </div><div class="macros">${macroBar('Protein', t.p, g.p)}${macroBar('Carbs', t.c, g.c)}${macroBar('Fat', t.f, g.f)}</div></div>
+  </div><div class="macros">${macroBar('Protein', t.p, g.p)}${macroBar('Carbs', t.c, g.c)}${macroBar('Fat', t.f, g.f)}${macroBar('Fiber', t.fi, g.fi)}</div></div>
   <div class="daynav"><button data-a="day" data-d="-1" aria-label="Previous day">‹</button><b>${niceDate(day)}</b><button data-a="day" data-d="1" aria-label="Next day" ${day >= today() ? 'disabled' : ''}>›</button></div>
   ${backupDue() ? `<div class="card"><b>🥔 Time for a backup</b><p class="muted small" style="margin:6px 0 12px">${S.lastBackup ? 'Your last backup was on ' + niceDate(S.lastBackup) + '.' : "You haven't saved a backup yet."} It keeps your foods, your days and your potato safe.</p><button class="btn sm" data-a="exportData">Save backup  +5 ${COIN}</button></div>` : ''}
   ${meals}`;
@@ -182,6 +194,7 @@ function viewMe() {
     <label class="f"><span>Carbs (g)</span><input class="inp" id="g-c" inputmode="decimal" value="${g.c}"></label>
     <label class="f"><span>Fat (g)</span><input class="inp" id="g-f" inputmode="decimal" value="${g.f}"></label></div>
     <div id="macrosum"></div>
+    <label class="f"><span>Fiber (g) — tracked, but not part of the calorie sum</span><input class="inp" id="g-fi" inputmode="decimal" value="${g.fi}"></label>
     <button class="btn ghost sm" data-a="fitCarbs" style="margin-bottom:10px">Fill the rest with carbs</button>
     <button class="btn" data-a="saveMe">${S.onboarded ? 'Save' : "Let's go!"}</button></div>
   <div class="card"><b>Not sure? Let the potato suggest</b><p class="muted small" style="margin:6px 0 12px">Optional. It fills in the goal above and you can still change every number.</p><div class="grid2">
@@ -200,7 +213,7 @@ function viewMe() {
 // Live check that protein, carbs and fat add up to the calorie goal.
 function goalFields() {
   const v = id => { const n = num($(id).value); return n >= 0 ? n : 0; };
-  return { kcal: Math.round(v('#g-kcal')), p: v('#g-p'), c: v('#g-c'), f: v('#g-f') };
+  return { kcal: Math.round(v('#g-kcal')), p: v('#g-p'), c: v('#g-c'), f: v('#g-f'), fi: v('#g-fi') };
 }
 function macrosOk(g) { return Math.abs(macroKcal(g.p, g.c, g.f) - g.kcal) < 0.5; }
 function updMacroSum() {
@@ -239,16 +252,16 @@ const shHead = title => `<div class="sh-head"><h2>${title}</h2><button class="x"
 function sheetMeal(id) {
   backToMeal = id; addMeal = id;
   const name = MEALS.find(m => m[0] === id)[1], es = dayLog(day).filter(e => e.meal === id), sh = MEAL_SHARE[id], g = S.goal;
-  const m = { kcal: 0, p: 0, c: 0, f: 0 };
-  es.forEach(e => { m.kcal += e.kcal; m.p += e.p; m.c += e.c; m.f += e.f; });
+  const m = { kcal: 0, p: 0, c: 0, f: 0, fi: 0 };
+  es.forEach(e => { m.kcal += e.kcal; m.p += e.p; m.c += e.c; m.f += e.f; m.fi += e.fi || 0; });
   const budget = Math.round(g.kcal * sh), over = m.kcal > budget * 1.05;
   const C = 2 * Math.PI * 30;
-  const ring = (label, val, goal, color) => `<div class="mring"><div class="rw"><svg width="80" height="80" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-opacity=".22" stroke-width="7"/><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - (goal ? Math.min(1, val / goal) : 0))}" transform="rotate(-90 38 38)"/></svg><div class="rm"><b>${Math.round(val)}</b><span>/${Math.round(goal)} g</span></div></div><div class="rl">${label}</div></div>`;
+  const ring = (label, val, goal, color) => `<div class="mring"><div class="rw"><svg width="72" height="72" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-opacity=".22" stroke-width="7"/><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - (goal ? Math.min(1, val / goal) : 0))}" transform="rotate(-90 38 38)"/></svg><div class="rm"><b>${Math.round(val)}</b><span>/${Math.round(goal)} g</span></div></div><div class="rl">${label}</div></div>`;
   openSheet(`<div class="sh-head"><button class="chip" data-a="openAdd" data-meal="${id}">＋ Add more food</button><span class="grow"></span><button class="btn sm donebtn" data-a="closeSheet">Done</button></div>
   <div class="sh-body"><h2 class="mtitle">${name}</h2><p class="center muted" style="margin-bottom:8px">${niceDate(day)} · <b style="color:var(--ink)">${Math.round(m.kcal)}</b> / ${budget} kcal</p>
   <div class="bar mbar"><i style="width:${budget ? Math.min(100, m.kcal / budget * 100) : 0}%;background:${over ? 'var(--red)' : 'var(--green)'}"></i></div>
-  <div class="mrings">${ring('Protein', m.p, g.p * sh, '#F06A5E')}${ring('Carbs', m.c, g.c * sh, '#FF9F45')}${ring('Fat', m.f, g.f * sh, '#6FA8F5')}</div>
-  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)}</span></div></button>`).join('')
+  <div class="mrings">${ring('Protein', m.p, g.p * sh, '#F06A5E')}${ring('Carbs', m.c, g.c * sh, '#FF9F45')}${ring('Fat', m.f, g.f * sh, '#6FA8F5')}${ring('Fiber', m.fi, g.fi * sh, '#6DBE5A')}</div>
+  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('')
       : `<p class="center muted" style="margin-top:26px">Nothing logged for ${name.toLowerCase()} yet.</p>`}</div>`, false, 'meal');
 }
 
@@ -286,9 +299,9 @@ function sheetAmount(food, entry) {
   if (!entry && food.serving) cur.unit = 's';
   const f = food;
   openSheet(`${shHead(esc(f.name))}
-  <div class="sh-body"><p class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}${Math.round(f.kcal)} kcal · P ${r1(f.p)} · C ${r1(f.c)} · F ${r1(f.f)} per 100 g</p>
+  <div class="sh-body"><p class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}${Math.round(f.kcal)} kcal · P ${r1(f.p)} · C ${r1(f.c)} · F ${r1(f.f)} · Fiber ${r1(f.fi || 0)} per 100 g</p>
   <div class="bigkcal"><span id="a-kcal">0</span> <span style="font-size:18px" class="muted">kcal</span></div>
-  <div class="tri"><div><b id="a-p">0</b><span class="muted small">protein</span></div><div><b id="a-c">0</b><span class="muted small">carbs</span></div><div><b id="a-f">0</b><span class="muted small">fat</span></div></div>
+  <div class="tri four"><div><b id="a-p">0</b><span class="muted small">protein</span></div><div><b id="a-c">0</b><span class="muted small">carbs</span></div><div><b id="a-f">0</b><span class="muted small">fat</span></div><div><b id="a-fi">0</b><span class="muted small">fiber</span></div></div>
   <label class="f"><span>How much?</span><input class="inp" id="amount" inputmode="decimal" value="${cur.amount}"></label>
   ${f.serving ? `<div class="seg" style="margin-bottom:14px"><button data-a="unit" data-u="s">${esc(f.serving.label)} (${f.serving.g} g)</button><button data-a="unit" data-u="g">grams</button></div>` : ''}
   <div class="chips" id="quick" style="margin-bottom:16px"></div>
@@ -301,7 +314,7 @@ function curGrams() { const a = num($('#amount').value); if (!(a > 0)) return 0;
 function updAmount() {
   if (!cur) return;
   const g = curGrams(), f = cur.food, k = g / 100;
-  $('#a-kcal').textContent = Math.round(f.kcal * k); $('#a-p').textContent = r1(f.p * k) + ' g'; $('#a-c').textContent = r1(f.c * k) + ' g'; $('#a-f').textContent = r1(f.f * k) + ' g';
+  $('#a-kcal').textContent = Math.round(f.kcal * k); $('#a-p').textContent = r1(f.p * k) + ' g'; $('#a-c').textContent = r1(f.c * k) + ' g'; $('#a-f').textContent = r1(f.f * k) + ' g'; $('#a-fi').textContent = r1((f.fi || 0) * k) + ' g';
   document.querySelectorAll('#sheet .seg button').forEach(b => b.classList.toggle('on', b.dataset.u === cur.unit));
   const quick = cur.unit === 's' ? [0.5, 1, 2, 3] : [50, 100, 150, 200, 250];
   $('#quick').innerHTML = quick.map(v => `<button class="chip" data-a="quick" data-v="${v}">${v}${cur.unit === 's' ? '×' : ' g'}</button>`).join('');
@@ -322,7 +335,8 @@ function sheetFood(f, note) {
   <label class="f"><span>Protein (g)</span><input class="inp" id="f-p" inputmode="decimal" value="${v(f.p)}"></label>
   <label class="f"><span>Carbs (g)</span><input class="inp" id="f-c" inputmode="decimal" value="${v(f.c)}"></label>
   <label class="f"><span>Fat (g)</span><input class="inp" id="f-f" inputmode="decimal" value="${v(f.f)}"></label></div>
-  <label class="f"><span>One portion / package in grams (optional)</span><input class="inp" id="f-serv" inputmode="decimal" value="${v(f.serving && f.serving.g)}" placeholder="e.g. 250"></label>
+  <div class="grid2"><label class="f"><span>Fiber (g, optional)</span><input class="inp" id="f-fi" inputmode="decimal" value="${v(f.fi)}"></label>
+  <label class="f"><span>One portion (g, optional)</span><input class="inp" id="f-serv" inputmode="decimal" value="${v(f.serving && f.serving.g)}" placeholder="e.g. 250"></label></div>
   <label class="f"><span>Barcode (optional)</span><input class="inp" id="f-barcode" inputmode="numeric" value="${v(f.barcode)}"></label>
   <button class="btn" data-a="saveFood">Save food</button>
   ${f.id ? '<button class="btn danger" style="margin-top:10px" data-a="delFood">Delete food</button>' : ''}</div>`);
@@ -368,7 +382,7 @@ async function onCode(code) {
       const p = j.product, n = p.nutriments || {};
       const kcal = n['energy-kcal_100g'] != null ? num(n['energy-kcal_100g']) : (n['energy_100g'] != null ? num(n['energy_100g']) / 4.184 : NaN);
       const sq = num(p.serving_quantity);
-      found = { name: p.product_name_sk || p.product_name || '', brand: (p.brands || '').split(',')[0].trim(), kcal: isNaN(kcal) ? '' : Math.round(kcal), p: r1(num(n.proteins_100g)), c: r1(num(n.carbohydrates_100g)), f: r1(num(n.fat_100g)), serving: sq > 0 ? { g: sq } : null, barcode: code };
+      found = { name: p.product_name_sk || p.product_name || '', brand: (p.brands || '').split(',')[0].trim(), kcal: isNaN(kcal) ? '' : Math.round(kcal), p: r1(num(n.proteins_100g)), c: r1(num(n.carbohydrates_100g)), f: r1(num(n.fat_100g)), fi: r1(num(n.fiber_100g)), serving: sq > 0 ? { g: sq } : null, barcode: code };
     }
   } catch (e) { }
   if (found) sheetFood(found, '✅ Found it! Please check the numbers against the label, then save — next time it will be in your foods.');
@@ -396,13 +410,13 @@ const A = {
   editEntry(el) {
     const e = dayLog(day).find(x => x.id === el.dataset.id); if (!e) return;
     const k = 100 / (e.grams || 100);
-    const f = getFood(e.foodId) || { id: e.foodId, name: e.name, kcal: e.kcal * k, p: e.p * k, c: e.c * k, f: e.f * k };
+    const f = getFood(e.foodId) || { id: e.foodId, name: e.name, kcal: e.kcal * k, p: e.p * k, c: e.c * k, f: e.f * k, fi: (e.fi || 0) * k };
     sheetAmount(Object.assign({}, f, { name: e.name }), e);
   },
   saveEntry() {
     const g = curGrams(); if (!(g > 0)) return toast('Enter an amount first');
     const f = cur.food, k = g / 100;
-    const data = { foodId: f.id, name: f.name + (f.brand ? ' (' + f.brand + ')' : ''), meal: cur.meal, grams: g, kcal: f.kcal * k, p: f.p * k, c: f.c * k, f: f.f * k };
+    const data = { foodId: f.id, name: f.name + (f.brand ? ' (' + f.brand + ')' : ''), meal: cur.meal, grams: g, kcal: f.kcal * k, p: f.p * k, c: f.c * k, f: f.f * k, fi: (f.fi || 0) * k };
     if (cur.entry) Object.assign(cur.entry, data, { name: cur.entry.name });
     else {
       (S.log[day] || (S.log[day] = [])).push(Object.assign({ id: uid() }, data));
@@ -423,7 +437,7 @@ const A = {
     if (!(kcal >= 0)) return toast('Enter the calories per 100 g');
     const z = id => { const n = num($(id).value); return n >= 0 ? n : 0; };
     const sg = num($('#f-serv').value), id = $('#f-id').value || 'c:' + uid();
-    const f = { id, custom: true, name, brand: $('#f-brand').value.trim(), kcal, p: z('#f-p'), c: z('#f-c'), f: z('#f-f'), serving: sg > 0 ? { label: '1 portion', g: sg } : null, barcode: $('#f-barcode').value.replace(/\D/g, '') };
+    const f = { id, custom: true, name, brand: $('#f-brand').value.trim(), kcal, p: z('#f-p'), c: z('#f-c'), f: z('#f-f'), fi: z('#f-fi'), serving: sg > 0 ? { label: '1 portion', g: sg } : null, barcode: $('#f-barcode').value.replace(/\D/g, '') };
     const isNew = !S.foods[id];
     S.foods[id] = f; save();
     if (isNew) { toast('Saved to My foods 🥔'); sheetAmount(f); } else sheetAdd();
@@ -500,7 +514,7 @@ document.addEventListener('change', ev => {
       const d = JSON.parse(fr.result);
       if (!d || typeof d.log !== 'object' || typeof d.goal !== 'object') throw 0;
       if (!confirm('Replace everything on this phone with the backup?')) return;
-      localStorage.setItem(KEY, JSON.stringify(d)); S = load(); if (!Array.isArray(S.garden)) S.garden = []; render(); toast('Backup restored ✓');
+      localStorage.setItem(KEY, JSON.stringify(d)); S = load(); normalize(); render(); toast('Backup restored ✓');
     } catch (e) { toast("That file doesn't look like a Spuddy backup"); }
   };
   fr.readAsText(ev.target.files[0]);

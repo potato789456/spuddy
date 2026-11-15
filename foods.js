@@ -149,9 +149,28 @@ const BASE_RAW = [
   ['Soy milk, unsweetened', 33, 2.9, 1.7, 1.6, '1 glass', 250],
 ];
 
+// Fiber per 100 g for the foods above (anything not listed has none).
+const FIBER = {
+  'Tofu, firm': 2.3, 'Lentils, cooked': 7.9, 'Chickpeas, cooked': 7.6, 'Kidney beans, cooked': 6.4, 'Black beans, cooked': 8.7,
+  'Rice, white, cooked': 0.4, 'Rice, white, dry': 1.3, 'Rice, brown, cooked': 1.8, 'Pasta, cooked': 1.8, 'Pasta, dry': 3.2, 'Oats, rolled': 10,
+  'Bread, white': 2.7, 'Bread, whole wheat': 7, 'Bread, rye': 5.8, 'Tortilla, wheat': 3, 'Quinoa, cooked': 2.8, 'Couscous, cooked': 1.4,
+  'Bulgur, cooked': 4.5, 'Buckwheat, cooked': 2.7, 'Potato, raw': 2.2, 'Potato, boiled': 1.8, 'Sweet potato, raw': 3, 'Sweet potato, baked': 3.3,
+  'Cornflakes': 3.3, 'Rice cakes': 4.2,
+  'Apple': 2.4, 'Banana': 2.6, 'Orange': 2.4, 'Mandarin': 1.8, 'Strawberries': 2, 'Blueberries': 2.4, 'Raspberries': 6.5, 'Grapes': 0.9,
+  'Watermelon': 0.4, 'Pear': 3.1, 'Peach': 1.5, 'Plum': 1.4, 'Kiwi': 3, 'Pineapple': 1.4, 'Mango': 1.6, 'Cherries': 2.1, 'Grapefruit': 1.6,
+  'Lemon': 2.8, 'Avocado': 6.7, 'Dates': 6.7, 'Raisins': 3.7,
+  'Tomato': 1.2, 'Cucumber': 0.5, 'Carrot': 2.8, 'Broccoli': 2.6, 'Cauliflower': 2, 'Spinach': 2.2, 'Lettuce': 1.3, 'Bell pepper': 2.1,
+  'Onion': 1.7, 'Garlic': 2.1, 'Zucchini': 1, 'Mushrooms': 1, 'Green beans': 2.7, 'Peas': 5.7, 'Sweet corn': 2, 'Cabbage': 2.5, 'Eggplant': 3,
+  'Beetroot': 2.8, 'Asparagus': 2.1, 'Radish': 1.6, 'Pumpkin': 0.5,
+  'Almonds': 12.5, 'Walnuts': 6.7, 'Cashews': 3.3, 'Peanuts': 8.5, 'Hazelnuts': 9.7, 'Pistachios': 10.6, 'Peanut butter': 6, 'Chia seeds': 34.4,
+  'Flax seeds': 27.3, 'Sunflower seeds': 8.6, 'Pumpkin seeds': 6, 'Olives': 3.2, 'Hummus': 6,
+  'Honey': 0.2, 'Jam': 1.1, 'Dark chocolate (70%)': 10.9, 'Milk chocolate': 3.4, 'Ketchup': 0.3, 'Mustard': 4,
+  'Orange juice': 0.2, 'Apple juice': 0.2, 'Oat milk': 0.8, 'Almond milk, unsweetened': 0.2, 'Soy milk, unsweetened': 0.4,
+};
+
 const BASE = BASE_RAW.map(r => ({
   id: 'b:' + r[0].toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-  name: r[0], kcal: r[1], p: r[2], c: r[3], f: r[4],
+  name: r[0], kcal: r[1], p: r[2], c: r[3], f: r[4], fi: FIBER[r[0]] || 0,
   serving: r[5] ? { label: r[5], g: r[6] } : null,
 }));
 const BASE_MAP = Object.fromEntries(BASE.map(f => [f.id, f]));
