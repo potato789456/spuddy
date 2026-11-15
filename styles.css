@@ -238,3 +238,15 @@ label.f > span { display: block; font-size: 13px; font-weight: 700; color: var(-
 .gr-A { background: #2E8B3E; } .gr-B { background: #7DBB3C; } .gr-C { background: #F2C230; color: #4A3A00; } .gr-D { background: #EE8A2B; } .gr-E { background: #E0463C; }
 .bigkcal .gr, .mtitle .gr { font-size: 16px; margin-left: 6px; }
 .hero .gr { box-shadow: 0 0 0 2px rgba(255, 255, 255, .7); }
+
+/* Food quality dot (replaces the letter badge) and calorie line in the calendar */
+.qd { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; vertical-align: baseline; }
+.q-A { background: #2E8B3E; } .q-B { background: #8CC63F; } .q-C { background: #F2C230; } .q-D { background: #EE8A2B; } .q-E { background: #E0463C; }
+.mfood .d .qd { margin-right: 7px; }
+.food .qd { margin-right: 2px; }
+.bigkcal .qd, .mtitle .qd { width: 14px; height: 14px; margin-left: 6px; }
+.hero .qd { width: 15px; height: 15px; box-shadow: 0 0 0 2px rgba(255, 255, 255, .75); vertical-align: -2px; }
+.cbar { display: inline-block; width: 14px; height: 5px; border-radius: 3px; flex: none; vertical-align: middle; }
+.cbar.g { background: var(--green); } .cbar.o { background: var(--orange); } .cbar.r { background: var(--red); }
+.cd em .qd { width: 9px; height: 9px; }
+.legend .cbar { margin-right: 4px; }

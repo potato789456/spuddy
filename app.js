@@ -103,7 +103,7 @@ function mixGrade(es) {
   es.forEach(e => { tot += e.kcal; const g = entryGrade(e); if (g) { w += e.kcal; sum += e.kcal * 'EDCBA'.indexOf(g); } });
   return w > 0 && w >= tot * 0.5 ? 'EDCBA'[Math.round(sum / w)] : null;
 }
-const badge = g => g ? `<span class="gr gr-${g}">${g}</span>` : '';
+const badge = g => g ? `<i class="qd q-${g}" title="Food quality ${g}"></i>` : '';
 
 /* ---------- rewards ---------- */
 function settleRewards() {
@@ -280,7 +280,7 @@ function sheetMeal(id) {
   <div class="sh-body"><h2 class="mtitle">${name} ${badge(mixGrade(es))}</h2><p class="center muted" style="margin-bottom:8px">${niceDate(day)} · <b style="color:var(--ink)">${Math.round(m.kcal)}</b> / ${budget} kcal</p>
   <div class="bar mbar"><i style="width:${budget ? Math.min(100, m.kcal / budget * 100) : 0}%;background:${over ? 'var(--red)' : 'var(--green)'}"></i></div>
   <div class="mrings">${ring('Protein', m.p, g.p * sh, '#F06A5E')}${ring('Carbs', m.c, g.c * sh, '#FF9F45')}${ring('Fat', m.f, g.f * sh, '#6FA8F5')}${ring('Fiber', m.fi, g.fi * sh, '#6DBE5A')}</div>
-  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)} ${badge(entryGrade(e))}</div><div class="d">${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('')
+  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${badge(entryGrade(e))}${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('')
       : `<p class="center muted" style="margin-top:26px">Nothing logged for ${name.toLowerCase()} yet.</p>`}</div>`, false, 'meal');
 }
 
@@ -290,19 +290,19 @@ function dayMark(d) {
   if (!hasLog(d)) return null;
   const t = totals(d), g = S.goal, over = t.kcal - g.kcal;
   const gr = mixGrade(dayLog(d));
-  return { color: over <= 0 ? 'g' : over <= 100 ? 'o' : 'r', gr, face: gr ? { A: '😄', B: '😄', C: '🙂', D: '😐', E: '😕' }[gr] : '' };
+  return { color: over <= 0 ? 'g' : over <= 100 ? 'o' : 'r', gr };
 }
 function sheetCal() {
   const [y, m] = calMonth.split('-').map(Number), first = new Date(y, m - 1, 1), n = new Date(y, m, 0).getDate(), t = today();
   let cells = '<i></i>'.repeat((first.getDay() + 6) % 7);
   for (let d = 1; d <= n; d++) {
     const ds = `${calMonth}-${String(d).padStart(2, '0')}`, mk = dayMark(ds);
-    cells += `<button class="cd ${ds === day ? 'sel' : ''} ${ds === t ? 'now' : ''}" data-a="pickDay" data-d="${ds}" ${ds > t ? 'disabled' : ''}><span>${d}</span><em>${mk ? `<i class="dot ${mk.color}"></i>${ds < t ? mk.face : ""}` : ''}</em></button>`;
+    cells += `<button class="cd ${ds === day ? 'sel' : ''} ${ds === t ? 'now' : ''}" data-a="pickDay" data-d="${ds}" ${ds > t ? 'disabled' : ''}><span>${d}</span><em>${mk ? `<i class="cbar ${mk.color}"></i>${badge(mk.gr)}` : ''}</em></button>`;
   }
   openSheet(`<div class="sh-head"><button class="x" data-a="calNav" data-d="-1" aria-label="Previous month">‹</button><h2 class="center">${first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2><button class="x" data-a="calNav" data-d="1" aria-label="Next month" ${calMonth >= t.slice(0, 7) ? 'disabled' : ''}>›</button><button class="x" data-a="closeSheet" aria-label="Close">✕</button></div>
   <div class="sh-body"><div class="cal wk">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(w => `<b>${w}</b>`).join('')}</div><div class="cal">${cells}</div>
-  <div class="legend"><div><i class="dot g"></i> At or under the calorie goal</div><div><i class="dot o"></i> Up to 100 kcal over</div><div><i class="dot r"></i> More than 100 kcal over</div>
-  <div class="muted small" style="margin-top:8px">The face shows the food quality of the day, from the A–E health grades of what was eaten: 😄 A or B · 🙂 C · 😐 D · 😕 E. Today gets its face once the day is over.</div></div></div>`, true);
+  <div class="legend"><b>Calories (line)</b><div><i class="cbar g"></i> At or under the calorie goal</div><div><i class="cbar o"></i> Up to 100 kcal over</div><div><i class="cbar r"></i> More than 100 kcal over</div>
+  <b style="margin-top:8px">Food quality (dot)</b><div>${['A', 'B', 'C', 'D', 'E'].map(badge).join(' ')} &nbsp;from best to worst — the average of everything eaten that day</div></div></div></div>`, true);
 }
 
 /* Add food: search list */
@@ -379,7 +379,7 @@ function sheetFood(f, note) {
   <div class="grid2" style="grid-template-columns:1fr 1fr 1fr"><label class="f"><span>Sugars (g)</span><input class="inp" id="f-su" inputmode="decimal" value="${v(f.su)}"></label>
   <label class="f"><span>Saturated fat (g)</span><input class="inp" id="f-sf" inputmode="decimal" value="${v(f.sf)}"></label>
   <label class="f"><span>Salt (g)</span><input class="inp" id="f-sa" inputmode="decimal" value="${v(f.sa)}"></label></div>
-  <p class="muted small" style="margin:-4px 0 12px">${/^[a-e]$/i.test(f.grade || '') ? 'This product has an official grade from the barcode database: ' + badge(f.grade.toUpperCase()) : 'Fill in all three to get an A–E grade for this food.'}</p>
+  <p class="muted small" style="margin:-4px 0 12px">${/^[a-e]$/i.test(f.grade || '') ? 'This product has an official grade from the barcode database: ' + f.grade.toUpperCase() + ' ' + badge(f.grade.toUpperCase()) : 'Fill in all three to get an A–E grade for this food.'}</p>
   <input type="hidden" id="f-grade" value="${v(f.grade)}">
   <label class="f"><span>Barcode (optional)</span><input class="inp" id="f-barcode" inputmode="numeric" value="${v(f.barcode)}"></label>
   <button class="btn" data-a="saveFood">Save food</button>
