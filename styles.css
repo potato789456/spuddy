@@ -136,3 +136,37 @@ label.f > span { display: block; font-size: 13px; font-weight: 700; color: var(-
   max-width: 88vw; text-align: center; box-shadow: 0 6px 20px rgba(0, 0, 0, .25); animation: up .25s ease-out; white-space: pre-line;
 }
 [hidden] { display: none !important; }
+
+/* Calorie panel in its own colour */
+.hero { background: linear-gradient(155deg, #C08A50, #9A6934); color: #fff; box-shadow: 0 6px 18px rgba(154, 105, 52, .35); }
+.hero .track { stroke: rgba(255, 255, 255, .25); }
+.hero .prog { stroke: #fff; }
+.hero.over .prog { stroke: #FFB9AD; }
+.hero .ring .mid span, .hero .sumside .line span, .hero .macro .lab span { color: rgba(255, 255, 255, .85); }
+.hero .bar { background: rgba(255, 255, 255, .28); }
+.hero .bar i { background: #fff; }
+.daynav { margin-top: 2px; }
+
+/* Compact meals */
+.meal { padding: 12px 14px; margin-bottom: 10px; }
+.meal .mi { font-size: 26px; width: 34px; text-align: center; }
+.meal h3 { line-height: 1.15; }
+.entries { margin-top: 8px; padding-left: 44px; }
+.entry { display: block; width: 100%; text-align: left; padding: 4px 0; border: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meal .entry:first-of-type { margin-top: 0; }
+.entry .muted { font-weight: 500; }
+
+/* Garden */
+.gardenwrap { margin-bottom: 14px; }
+.garden { display: block; width: 100%; height: auto; border-radius: 26px; box-shadow: 0 4px 14px rgba(176, 125, 60, .18); }
+.garden .bob { animation: bob 3s ease-in-out infinite; }
+.gardenwrap .bubble { margin-top: 10px; }
+.shoptabs { margin-bottom: 4px; }
+.shoptabs button { font-size: 16px; padding: 12px 6px; }
+.thumb { display: block; margin: 0 auto; }
+.thumb.scene { border-radius: 14px; }
+
+/* Macro sum */
+.macrosum { border-radius: 14px; padding: 10px 14px; margin-bottom: 12px; }
+.macrosum.ok { background: #E6F5E1; color: #2F7A22; }
+.macrosum.bad { background: #FDE5E2; color: #B83D31; }
