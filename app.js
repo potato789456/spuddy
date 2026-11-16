@@ -23,7 +23,7 @@ function load() {
     profile: { sex: 'f', age: '', height: '', weight: '', activity: 1.375, pace: 0.5 },
     goal: { kcal: 1800, p: 110, c: 205, f: 60, fi: 25 },
     foods: {}, uses: {}, log: {}, coins: 0,
-    owned: ['sprout', 'meadow'], equipped: { hat: 'sprout', bg: 'meadow' },
+    owned: ['sprout', 'meadow', 'picket', 'lawn'], equipped: { hat: 'sprout', bg: 'meadow', fence: 'picket', ground: 'lawn' },
     rew: {}, ms: [], garden: [], theme: 'light', onboarded: false,
   }, s);
 }
@@ -32,6 +32,9 @@ normalize();
 // Fill in anything an older save or backup doesn't have yet (garden list, fiber).
 function normalize() {
   if (!Array.isArray(S.garden)) S.garden = [];
+  ['picket', 'lawn'].forEach(id => { if (!S.owned.includes(id)) S.owned.push(id); });
+  if (!S.equipped.fence) S.equipped.fence = 'picket';
+  if (!S.equipped.ground) S.equipped.ground = 'lawn';
   if (!S.share || typeof S.share !== 'object') S.share = {};
   S.share = Object.assign({ on: false, name: '', friends: [], cache: {} }, S.share);
   if (!(S.goal.fi >= 0)) S.goal.fi = 25;
@@ -124,9 +127,9 @@ function settleRewards() {
     if (!hasLog(d)) return;
     const r = S.rew[d] || (S.rew[d] = {});
     if (!r.log) { r.log = 1; gained += 10; msgs.push(`Day logged  +10 ${COIN}`); }
-    if (d < t && !r.goal) {
-      const k = totals(d).kcal, g = S.goal.kcal;
-      if (k >= g * 0.75 && k <= g * 1.05) { r.goal = 1; gained += 10; msgs.push(`On target ${d === addDays(t, -1) ? 'yesterday' : 'on ' + niceDate(d)}  +10 ${COIN}`); }
+    if (d < t && r.goal !== 1) {
+      // Target met = the day ended at or under the calorie goal.
+      if (totals(d).kcal <= S.goal.kcal) { r.goal = 1; gained += 10; msgs.push(`Goal kept ${d === addDays(t, -1) ? 'yesterday' : 'on ' + niceDate(d)}  +10 ${COIN}`); }
       else r.goal = -1;
     }
   });
@@ -173,7 +176,7 @@ function viewToday() {
     return `<div class="card meal"><div class="row" data-a="openMeal" data-meal="${id}"><div class="grow"><h3>${name} <span class="chev">›</span></h3><div class="muted small">${sum} / ${Math.round(S.goal.kcal * MEAL_SHARE[id])} kcal</div></div><button class="add" data-a="openAdd" data-meal="${id}" aria-label="Add food to ${name}">+</button></div>
     ${es.length ? `<div class="entries">${es.map(e => `<button class="entry" data-a="editEntry" data-id="${e.id}">${esc(e.name)} (${Math.round(e.kcal)} kcal)</button>`).join('')}</div>` : ''}</div>`;
   }).join('');
-  return `<div class="head"><button data-a="tab" data-tab="potato" aria-label="Open potato">${potatoSVG({ hat: S.equipped.hat, glasses: S.equipped.glasses }, mood, 46)}</button>
+  return `<div class="head"><button data-a="tab" data-tab="potato" aria-label="Open potato">${potatoSVG({ hat: S.equipped.hat, glasses: S.equipped.glasses, costume: S.equipped.costume }, mood, 46)}</button>
     <h1 class="grow">Spuddy</h1><span class="pill">🔥 ${st.n}</span><span class="pill">${COIN} ${S.coins}</span></div>
   <div class="card hero ${over ? 'over' : ''}"><div class="summary">
     <div class="ring"><svg width="132" height="132" viewBox="0 0 132 132"><circle class="track" cx="66" cy="66" r="56" fill="none" stroke-width="13"/><circle class="prog" cx="66" cy="66" r="56" fill="none" stroke-width="13" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
@@ -192,10 +195,11 @@ function potatoSays() {
   if (st >= 2) return `${st} days in a row — keep going! 🌱`;
   return 'Yay, we started! See you tomorrow? 🌱';
 }
+const FIXED_SLOTS = ['bg', 'fence', 'ground'];   // always exactly one of each
 function shopItem(i) {
   const owned = S.owned.includes(i.id);
   const on = i.cat === 'garden' ? S.garden.includes(i.id) : S.equipped[i.cat] === i.id;
-  const label = on ? (i.cat === 'garden' ? 'In garden ✓' : i.cat === 'bg' ? 'Using ✓' : 'Wearing ✓') : owned ? 'Owned' : COIN + ' ' + i.price;
+  const label = on ? (i.cat === 'garden' ? 'In garden ✓' : FIXED_SLOTS.includes(i.cat) ? 'Using ✓' : i.cat === 'pet' ? 'With you ✓' : 'Wearing ✓') : owned ? 'Owned' : COIN + ' ' + i.price;
   return `<button class="item ${on ? 'on' : ''} ${owned ? 'owned' : 'locked'}" data-a="item" data-id="${i.id}">${itemThumb(i, 78)}<div class="nm">${i.name}</div><div class="pr">${label}</div></button>`;
 }
 function viewPotato() {
@@ -203,13 +207,13 @@ function viewPotato() {
   const sect = (title, items) => `<div class="listhead">${title}</div><div class="shop">${items.map(shopItem).join('')}</div>`;
   const shop = shopTab === 'clothes'
     ? CATS.map(([cat, title]) => sect(title, ITEMS.filter(i => i.cat === cat))).join('')
-    : GARDEN_SUBS.map(sub => sect(sub, ITEMS.filter(i => i.sub === sub))).join('') + sect('Scenery', ITEMS.filter(i => i.cat === 'bg'));
+    : GARDEN_SUBS.map(sub => sect(sub, ITEMS.filter(i => i.sub === sub))).join('') + sect('Pets', ITEMS.filter(i => i.cat === 'pet')) + sect('Fences', ITEMS.filter(i => i.cat === 'fence')) + sect('Ground', ITEMS.filter(i => i.cat === 'ground')) + sect('Scenery', ITEMS.filter(i => i.cat === 'bg'));
   return `<div class="head"><h1 class="grow">My garden</h1><span class="pill">🔥 ${st.n}</span><span class="pill">${COIN} ${S.coins}</span></div>
   <div class="gardenwrap">${gardenSVG(S.equipped, S.garden, hasLog(today()) ? 'happy' : 'sleepy')}<div class="bubble">${potatoSays()}</div></div>
   <div class="seg shoptabs"><button class="${shopTab === 'clothes' ? 'on' : ''}" data-a="shopTab" data-t="clothes">👕 Clothes</button><button class="${shopTab === 'garden' ? 'on' : ''}" data-a="shopTab" data-t="garden">🌻 Garden</button></div>
   ${shop}
   <div class="card" style="margin-top:18px"><div class="earn"><b>How to earn coins</b>
-    <div><span>Log food on a day</span><b>+10 ${COIN}</b></div><div><span>Finish a day on target</span><b>+10 ${COIN}</b></div>
+    <div><span>Log food on a day</span><b>+10 ${COIN}</b></div><div><span>Stay at or under your calorie goal</span><b>+10 ${COIN}</b></div>
     <div><span>Streaks (3, 7, 14, 21, 30… days)</span><b>+5 ${COIN} per day</b></div><div><span>Weekly backup</span><b>+5 ${COIN}</b></div></div></div>`;
 }
 function viewMe() {
@@ -564,7 +568,7 @@ const A = {
       if (i.cat === 'garden') S.garden.push(i.id); else S.equipped[i.cat] = i.id;
     } else if (i.cat === 'garden') {
       S.garden = S.garden.includes(i.id) ? S.garden.filter(x => x !== i.id) : S.garden.concat(i.id);
-    } else if (S.equipped[i.cat] === i.id) { if (i.cat !== 'bg') delete S.equipped[i.cat]; }
+    } else if (S.equipped[i.cat] === i.id) { if (!FIXED_SLOTS.includes(i.cat)) delete S.equipped[i.cat]; }
     else S.equipped[i.cat] = i.id;
     save(); const y = window.scrollY; render(); window.scrollTo(0, y);
   },

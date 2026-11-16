@@ -291,3 +291,6 @@ html[data-theme="dark"] .hero { background: linear-gradient(155deg, #9A6A3A, #70
 .wk7 em { display: flex; align-items: center; justify-content: center; gap: 3px; height: 14px; margin-top: 3px; }
 .wk7 .qd { width: 9px; height: 9px; }
 button.pill { font-size: 14px; }
+
+/* Shop extras */
+.listhead .hint { text-transform: none; letter-spacing: 0; font-weight: 600; }
