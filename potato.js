@@ -68,9 +68,9 @@ const ITEMS = [
   { id: 'roses', cat: 'garden', sub: 'Flowers', name: 'Rose bush', price: 50, x: 72, y: 350, box: '-36 -42 72 46', svg: `<circle cx="-14" cy="-10" r="13" fill="#5FAE55"/><circle cx="14" cy="-10" r="13" fill="#5FAE55"/><circle cx="0" cy="-18" r="18" fill="#6DBE5A"/>` + [[-14, -12], [0, -26], [13, -14], [-2, -10], [8, -26]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="#E8456B"/><circle cx="${p[0]}" cy="${p[1]}" r="2" fill="#FF8FA8"/>`).join('') },
   { id: 'mushrooms', cat: 'garden', sub: 'Decorations', name: 'Mushrooms', price: 25, x: 288, y: 374, box: '-26 -34 52 38', svg: `<rect x="-10" y="-14" width="8" height="15" rx="3" fill="#FFF3E0"/><path d="M-20 -12 Q-6 -36 8 -12Z" fill="#E8554E"/><circle cx="-8" cy="-20" r="2.5" fill="#fff"/><circle cx="-1" cy="-15" r="1.8" fill="#fff"/><rect x="9" y="-8" width="6" height="9" rx="2.5" fill="#FFF3E0"/><path d="M3 -7 Q12 -22 21 -7Z" fill="#E8554E"/><circle cx="12" cy="-11" r="1.8" fill="#fff"/>` },
   { id: 'pumpkin', cat: 'garden', sub: 'Decorations', name: 'Pumpkin', price: 35, x: 206, y: 393, box: '-26 -30 52 34', svg: `<ellipse cx="-9" cy="-10" rx="9" ry="10.5" fill="#EE8A2B"/><ellipse cx="9" cy="-10" rx="9" ry="10.5" fill="#EE8A2B"/><ellipse cx="0" cy="-10" rx="9" ry="11.5" fill="#F7A043"/><rect x="-2" y="-26" width="4" height="7" rx="1.5" fill="#5FA644"/>` },
-  { id: 'butterfly', cat: 'garden', sub: 'Decorations', name: 'Butterfly', price: 45, x: 288, y: 250, box: '-20 -18 40 32', svg: `<ellipse cx="-7" cy="-5" rx="7" ry="9" fill="#C58BF2" transform="rotate(-20 -7 -5)"/><ellipse cx="7" cy="-5" rx="7" ry="9" fill="#C58BF2" transform="rotate(20 7 -5)"/><ellipse cx="-5" cy="6" rx="4.5" ry="5.5" fill="#F29AC1"/><ellipse cx="5" cy="6" rx="4.5" ry="5.5" fill="#F29AC1"/><path d="M0 -8 L0 9" stroke="#3B2A1A" stroke-width="2.5" stroke-linecap="round"/>` },
+  { id: 'butterfly', cat: 'garden', sub: 'Decorations', name: 'Butterfly', price: 45, x: 62, y: 262, box: '-20 -18 40 32', svg: `<ellipse cx="-7" cy="-5" rx="7" ry="9" fill="#C58BF2" transform="rotate(-20 -7 -5)"/><ellipse cx="7" cy="-5" rx="7" ry="9" fill="#C58BF2" transform="rotate(20 7 -5)"/><ellipse cx="-5" cy="6" rx="4.5" ry="5.5" fill="#F29AC1"/><ellipse cx="5" cy="6" rx="4.5" ry="5.5" fill="#F29AC1"/><path d="M0 -8 L0 9" stroke="#3B2A1A" stroke-width="2.5" stroke-linecap="round"/>` },
   { id: 'gnome', cat: 'garden', sub: 'Decorations', name: 'Garden gnome', price: 60, x: 92, y: 302, box: '-26 -68 52 72', svg: `<ellipse cx="-6" cy="0" rx="6" ry="3" fill="#5A4636"/><ellipse cx="6" cy="0" rx="6" ry="3" fill="#5A4636"/><path d="M-13 0 Q-15 -22 0 -24 Q15 -22 13 0Z" fill="#4A78C2"/><circle cx="0" cy="-28" r="8.5" fill="#F6C9A0"/><path d="M-10 -27 Q0 0 10 -27 Q0 -20 -10 -27Z" fill="#fff"/><circle cx="0" cy="-26" r="2.4" fill="#EFA98A"/><circle cx="-3.5" cy="-30" r="1.2" fill="#3B2A1A"/><circle cx="3.5" cy="-30" r="1.2" fill="#3B2A1A"/><path d="M-11 -33 Q-2 -52 2 -64 Q6 -48 11 -33Z" fill="#E8554E"/>` },
-  { id: 'birdbath', cat: 'garden', sub: 'Decorations', name: 'Bird bath', price: 70, x: 316, y: 296, box: '-30 -54 60 58', svg: `<ellipse cx="0" cy="0" rx="14" ry="4" fill="#B7BDC7"/><rect x="-4" y="-28" width="8" height="28" fill="#C9CED6"/><path d="M-22 -33 Q0 -14 22 -33Z" fill="#C9CED6"/><ellipse cx="0" cy="-33" rx="21" ry="4.5" fill="#8FD3F4"/><circle cx="11" cy="-41" r="5.5" fill="#FFB347"/><circle cx="15" cy="-45" r="3.5" fill="#FFB347"/><path d="M18 -45 L22 -44 L18 -43Z" fill="#E8554E"/><circle cx="16" cy="-46" r="0.8" fill="#3B2A1A"/>` },
+  { id: 'birdbath', cat: 'garden', sub: 'Decorations', name: 'Bird bath', price: 70, x: 46, y: 306, box: '-30 -54 60 58', svg: `<ellipse cx="0" cy="0" rx="14" ry="4" fill="#B7BDC7"/><rect x="-4" y="-28" width="8" height="28" fill="#C9CED6"/><path d="M-22 -33 Q0 -14 22 -33Z" fill="#C9CED6"/><ellipse cx="0" cy="-33" rx="21" ry="4.5" fill="#8FD3F4"/><circle cx="11" cy="-41" r="5.5" fill="#FFB347"/><circle cx="15" cy="-45" r="3.5" fill="#FFB347"/><path d="M18 -45 L22 -44 L18 -43Z" fill="#E8554E"/><circle cx="16" cy="-46" r="0.8" fill="#3B2A1A"/>` },
   { id: 'bunny', cat: 'garden', sub: 'Decorations', name: 'Bunny', price: 90, x: 128, y: 391, box: '-26 -50 52 54', svg: `<g fill="#fff" stroke="#DDD3C6" stroke-width="1.5"><ellipse cx="5" cy="-36" rx="3.2" ry="9.5"/><ellipse cx="12" cy="-35" rx="3.2" ry="9.5" transform="rotate(14 12 -35)"/><circle cx="-12" cy="-9" r="4.5"/><ellipse cx="0" cy="-10" rx="12.5" ry="10"/><circle cx="9" cy="-22" r="8.5"/></g><circle cx="12" cy="-23" r="1.4" fill="#3B2A1A"/><circle cx="17" cy="-20" r="1.3" fill="#FF9CC2"/>` },
   { id: 'house', cat: 'garden', sub: 'Decorations', name: 'Little house', price: 120, x: 172, y: 176, layer: 1, box: '-30 -50 60 54', svg: `<rect x="-18" y="-24" width="36" height="26" fill="#FFF1D6"/><path d="M-24 -23 L0 -45 L24 -23Z" fill="#D7694A"/><rect x="-5" y="-13" width="9" height="15" rx="2" fill="#8C5A32"/><rect x="7" y="-18" width="8" height="8" fill="#9ED8F5" stroke="#fff" stroke-width="1.2"/>` },
   { id: 'rainbow', cat: 'garden', sub: 'Decorations', name: 'Rainbow', price: 150, x: 250, y: 212, layer: 0, box: '-80 -80 160 86', svg: ['#F06A5E', '#FFB347', '#FFE066', '#7CC55A', '#6FA8F5', '#B58BF2'].map((c, k) => { const r = 74 - k * 7; return `<path d="M${-r} 0 A${r} ${r} 0 0 1 ${r} 0" fill="none" stroke="${c}" stroke-width="7.4"/>`; }).join('') },
@@ -267,17 +267,43 @@ function scene(id, fence, ground) {
   };
 }
 const PET_SPOT = { x: 264, y: 352 };
+// Groups where only one item is out at a time (like pets). The last one put in wins.
+const SINGLE_SUBS = ['Fun & relax', 'Trees', 'Flowers', 'Decorations'];
+function oneEach(placed) {
+  const seen = {};
+  return (placed || []).slice().reverse().filter(id => {
+    const i = ITEM_MAP[id];
+    if (!i || !SINGLE_SUBS.includes(i.sub)) return true;
+    if (seen[i.sub]) return false;
+    return seen[i.sub] = true;
+  }).reverse();
+}
+// Fun & relax: one big item at the back of the lawn on the right. Width it is drawn at, and where it stands.
+const FUN_W = { pool: 236, treeswing: 172 }, FUN_BASE = { pool: 352 }, FUN_RIGHT = 357;
+// Flowers: the chosen kind grows all over the garden.
+const FLOWER_SPOTS = [[24, 266], [70, 338], [338, 374], [30, 420], [300, 432], [170, 444], [96, 472], [236, 502], [330, 520], [52, 532], [150, 534]];
+function gardenParts(i) {
+  if (i.sub === 'Fun & relax') {
+    const b = i.box.split(' ').map(Number), s = (FUN_W[i.id] || 196) / b[2];
+    return [Object.assign({}, i, { x: FUN_RIGHT - (b[0] + b[2]) * s, y: FUN_BASE[i.id] || 330, s })];
+  }
+  if (i.sub === 'Flowers') return FLOWER_SPOTS.map((p, n) => Object.assign({}, i, { x: p[0], y: p[1], s: n % 3 === 1 ? 0.85 : 1 }));
+  return [Object.assign({}, i)];
+}
 function gardenSVG(eq, placed, mood, orn) {
   eq = eq || {};
   const sc = scene(eq.bg, eq.fence, eq.ground);
-  const its = (placed || []).map(id => ITEM_MAP[id]).filter(i => i && i.cat === 'garden');
+  const its = [].concat(...oneEach(placed).map(id => ITEM_MAP[id]).filter(i => i && i.cat === 'garden').map(gardenParts));
   const pet = ITEM_MAP[eq.pet];
-  if (pet && pet.cat === 'pet') its.push(Object.assign({}, pet, PET_SPOT));
+  // With a big item out, the potato steps to the left to make room (unless the Christmas tree stands there).
+  const big = its.some(i => i.sub === 'Fun & relax'), aside = big && !its.some(i => i.id === 'xmastree');
+  if (aside) its.forEach(i => { if (i.sub === 'Decorations' && i.layer === undefined && i.y < 340 && i.x < 120) i.x = 30; });
+  if (pet && pet.cat === 'pet') its.push(Object.assign({}, pet, big ? { x: 236, y: 394 } : PET_SPOT));
   its.sort((a, b) => a.y - b.y);
-  const put = f => its.filter(f).map(i => i.id === 'xmastree' ? `<g transform="translate(${i.x} ${i.y}) scale(1.3)">${treeSVG(orn)}</g>` : `<g transform="translate(${i.x} ${i.y})">${i.svg}</g>`).join('');
+  const put = f => its.filter(f).map(i => i.id === 'xmastree' ? `<g transform="translate(${i.x} ${i.y}) scale(1.3)">${treeSVG(orn)}</g>` : `<g transform="translate(${i.x} ${i.y})${i.s ? ` scale(${i.s})` : ''}">${i.svg}</g>`).join('');
   return `<svg class="garden" viewBox="0 0 360 ${GARDEN_H}" xmlns="http://www.w3.org/2000/svg">
 ${sc.back}${put(i => i.layer === 0)}${sc.hills}${put(i => i.layer === 1)}${sc.front}${put(i => i.layer === undefined && i.y <= 358)}
-<g transform="translate(80 150)">${potatoInner(eq, mood, true)}</g>
+<g transform="translate(${aside ? 36 : 80} 150)">${potatoInner(eq, mood, true)}</g>
 ${put(i => i.layer === undefined && i.y > 358)}</svg>`;
 }
 // Small picture of one item for the shop.

@@ -32,6 +32,7 @@ normalize();
 // Fill in anything an older save or backup doesn't have yet (garden list, fiber).
 function normalize() {
   if (!Array.isArray(S.garden)) S.garden = [];
+  S.garden = oneEach(S.garden);
   ['picket', 'lawn'].forEach(id => { if (!S.owned.includes(id)) S.owned.push(id); });
   if (!S.equipped.fence) S.equipped.fence = 'picket';
   if (!S.equipped.ground) S.equipped.ground = 'lawn';
@@ -233,8 +234,9 @@ function sheetItem(id, still) {
   const t = TINTS[id], chosen = S.equipped.tint[id] || '';
   const colours = !t ? '' : !owned ? '<p class="center muted small" style="margin-top:12px">🎨 You can pick its colour once it is yours.</p>'
     : `<div class="listhead">Colour</div><div class="swatches">${[''].concat(PALETTE.filter(c => c !== t[0])).map(c => `<button class="sw ${c === chosen ? 'on' : ''}" data-a="tint" data-c="${c}" style="background:${c || t[0]}" aria-label="${c ? 'Colour' : 'Original colour'}"></button>`).join('')}</div>`;
+  const swap = !on && SINGLE_SUBS.includes(i.sub) && S.garden.some(x => x !== id && ITEM_MAP[x] && ITEM_MAP[x].sub === i.sub) ? `<p class="center muted small" style="margin-top:10px">One at a time: this takes the place of the ${esc(ITEM_MAP[S.garden.find(x => x !== id && ITEM_MAP[x] && ITEM_MAP[x].sub === i.sub)].name.toLowerCase())}.</p>` : '';
   const hidden = owned && on && UNDER_COSTUME.includes(i.cat) && S.equipped.costume ? '<p class="center muted small" style="margin-top:10px">Hidden while a costume is on.</p>' : '';
-  openSheet(`${shHead(esc(i.name))}<div class="sh-body"><div class="preview ${SCENIC.includes(i.cat) ? 'scenic' : ''}">${pic}</div>${act}${hidden}${colours}</div>`, true);
+  openSheet(`${shHead(esc(i.name))}<div class="sh-body"><div class="preview ${SCENIC.includes(i.cat) ? 'scenic' : ''}">${pic}</div>${act}${swap}${hidden}${colours}</div>`, true);
   if (still) $('#sheet').style.animation = 'none';
 }
 function itemChanged() { save(); const y = window.scrollY; render(); window.scrollTo(0, y); sheetItem(curItem, true); }
@@ -611,13 +613,13 @@ const A = {
     const i = ITEM_MAP[curItem];
     if (!i || i.gift || S.owned.includes(i.id) || S.coins < i.price) return;
     S.coins -= i.price; S.owned.push(i.id); toast(`${i.name} is yours! ✨`);
-    if (i.cat === 'garden') S.garden.push(i.id); else S.equipped[i.cat] = i.id;
+    if (i.cat === 'garden') S.garden = oneEach(S.garden.concat(i.id)); else S.equipped[i.cat] = i.id;
     itemChanged();
   },
   toggleItem() {
     const i = ITEM_MAP[curItem];
     if (!i || !S.owned.includes(i.id)) return;
-    if (i.cat === 'garden') S.garden = S.garden.includes(i.id) ? S.garden.filter(x => x !== i.id) : S.garden.concat(i.id);
+    if (i.cat === 'garden') S.garden = S.garden.includes(i.id) ? S.garden.filter(x => x !== i.id) : oneEach(S.garden.concat(i.id));
     else if (S.equipped[i.cat] === i.id) { if (!FIXED_SLOTS.includes(i.cat)) delete S.equipped[i.cat]; }
     else S.equipped[i.cat] = i.id;
     itemChanged();
