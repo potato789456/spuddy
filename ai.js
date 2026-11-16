@@ -114,7 +114,10 @@ Answer with JSON only, no other text, in exactly this shape:
 async function aiCall(system, input, schema) {
   const formats = [{ response_format: { type: 'text', mime_type: 'application/json', schema } }, { response_mime_type: 'application/json', response_format: schema }, {}];
   let last = null;
-  for (const model of AI_MODELS) {
+  // Start with the model that answered last time (for a few hours), so a busy model is not asked again on every question.
+  const pref = S.aiModel && Date.now() - S.aiModel.t < 3 * 3600 * 1000 && AI_MODELS.includes(S.aiModel.m) ? S.aiModel.m : null;
+  const order = pref ? [pref].concat(AI_MODELS.filter(m => m !== pref)) : AI_MODELS;
+  for (const model of order) {
     for (const fmt of formats) {
       let res;
       try {
@@ -127,7 +130,7 @@ async function aiCall(system, input, schema) {
       let data = null;
       try { data = await res.json(); } catch (e) { }
       if (Array.isArray(data)) data = data[0];
-      if (res.ok) return aiJson(data);
+      if (res.ok) { if (model !== pref) { S.aiModel = { m: model, t: Date.now() }; persist(); } return aiJson(data); }
       const msg = (data && data.error && data.error.message) || '';
       if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new Error('The AI key was not accepted. Check it in the Me tab.');
       last = { status: res.status, msg };
