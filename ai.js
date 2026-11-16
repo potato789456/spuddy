@@ -53,10 +53,49 @@ function aiPhotoBox() {
   if (q) q.placeholder = aiImg ? 'Describe the photo for a better estimate (optional), e.g. chicken breast with potatoes in herb butter' : 'e.g. 75 g cooked beef shoulder';
   const lab = $('#ai-qlabel'); if (lab) lab.textContent = aiImg ? 'What is in the photo? (optional, but it helps)' : 'What did you eat?';
 }
+/* ---------- in-app camera ----------
+   Taking the photo inside the app (like the barcode scanner does) instead of opening the phone's camera app:
+   on Android the camera app can push Spuddy out of memory, and the app then restarts and loses the open form. */
+let cam = null;   // { stream, done }
+function camEnd(result) {
+  if (!cam) return;
+  const c = cam; cam = null;
+  try { c.stream && c.stream.getTracks().forEach(t => t.stop()); } catch (e) { }
+  const el = $('#cam'); if (el) el.remove();
+  c.done(result || null);
+}
+// Opens the camera over whatever is on screen and gives back one photo (base64 JPEG), or null if closed.
+function takePhoto() {
+  return new Promise(async done => {
+    if (cam) camEnd(null);
+    const el = document.createElement('div'); el.id = 'cam';
+    el.innerHTML = `<video playsinline autoplay muted></video><div class="camtop"><button class="x" data-a="camClose" aria-label="Close camera">✕</button></div>
+    <div class="cambar"><button class="camside" data-a="camGallery">🖼️ Gallery</button><button class="camshot" data-a="camShot" aria-label="Take photo"></button><span class="camside"></span></div>
+    <input type="file" id="cam-file" accept="image/*" hidden>`;
+    document.body.appendChild(el);
+    cam = { stream: null, done };
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } });
+      if (!cam) return stream.getTracks().forEach(t => t.stop());   // closed while the phone was asking for permission
+      cam.stream = stream; el.querySelector('video').srcObject = stream;
+    } catch (e) {
+      // No camera access: fall back to choosing a picture.
+      const v = el.querySelector('video'); if (v) v.remove();
+      el.querySelector('.camshot').style.visibility = 'hidden';
+      el.insertAdjacentHTML('afterbegin', '<p class="cammsg">The camera is not available here. Allow camera access for Spuddy, or choose a picture from the gallery.</p>');
+    }
+  });
+}
+function camShot() {
+  const v = $('#cam video'); if (!cam || !v || !v.videoWidth) return;
+  const k = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement('canvas');
+  cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
+  cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height);
+  camEnd(cv.toDataURL('image/jpeg', 0.85).split(',')[1]);
+}
 document.addEventListener('change', async ev => {
-  if (ev.target.id !== 'ai-photo' || !ev.target.files[0]) return;
-  try { aiImg = await aiShrink(ev.target.files[0]); } catch (e) { aiImg = null; toast('That photo could not be opened'); }
-  ev.target.value = ''; aiPhotoBox();
+  if (ev.target.id !== 'cam-file' || !ev.target.files[0]) return;
+  try { camEnd(await aiShrink(ev.target.files[0])); } catch (e) { toast('That picture could not be opened'); }
 });
 
 let aiRes = null, aiBusy = false;
@@ -138,25 +177,41 @@ Set is_label to false if the photo does not show a nutrition table, and then use
 Answer with JSON only, no other text, in exactly this shape:
 {"is_label":true,"name":"","brand":"","kcal":0,"protein":0,"carbs":0,"fat":0,"fiber":0,"sugars":0,"saturated_fat":0,"salt":0,"portion_g":0}`;
 const LABEL_FIELDS = { kcal: '#f-kcal', protein: '#f-p', carbs: '#f-c', fat: '#f-f', fiber: '#f-fi', sugars: '#f-su', saturated_fat: '#f-sf', salt: '#f-sa', portion_g: '#f-serv' };
-async function labelFill(file) {
+async function labelFill(image) {
   const msg = t => { const m = $('#lb-msg'); if (m) m.innerHTML = t; };
   msg('<p class="center muted" style="margin:10px 0">Reading the label… 🥔</p>');
   try {
-    const out = await aiCall(LABEL_SYSTEM, aiImage('Read this nutrition label.', await aiShrink(file)), LABEL_SCHEMA);
+    const out = await aiCall(LABEL_SYSTEM, aiImage('Read this nutrition label.', image), LABEL_SCHEMA);
     if (!$('#f-kcal')) return;   // the form was closed meanwhile
     const got = LABEL_NUMS.filter(k => isFinite(+out[k]) && +out[k] >= 0);
     if (out.is_label === false || !got.includes('kcal')) return msg('<div class="note" style="margin-top:10px">I could not read a nutrition table in that photo. Try again closer and straight on, with good light.</div>');
-    got.forEach(k => { $(LABEL_FIELDS[k]).value = r1(+out[k]); });
+    got.forEach(k => { $(LABEL_FIELDS[k]).value = Math.round(+out[k] * 100) / 100; });
     if (!$('#f-name').value.trim() && out.name) $('#f-name').value = String(out.name).slice(0, 80);
     if (!$('#f-brand').value.trim() && out.brand) $('#f-brand').value = String(out.brand).slice(0, 40);
     $('#f-grade').value = '';   // the grade is worked out again from the new numbers
     msg('<div class="note" style="margin-top:10px">Filled in from the photo ✓ Check the numbers against the label before you save.</div>');
   } catch (e) { msg(`<div class="note" style="margin-top:10px">${esc(e.message === 'photo' ? 'That photo could not be opened.' : e.message)}</div>`); }
 }
-document.addEventListener('change', ev => {
-  if (ev.target.id !== 'lb-photo' || !ev.target.files[0]) return;
-  const f = ev.target.files[0]; ev.target.value = ''; labelFill(f);
-});
+// What is typed in the food form, so it can be put back if the phone restarts the app.
+const DRAFT_KEY = 'spuddy.draft';
+function draftSave() {
+  if (!$('#f-kcal')) return;
+  const v = id => $(id).value, n = id => { const x = num(v(id)); return isFinite(x) ? x : undefined; };
+  const f = { id: v('#f-id') || undefined, name: v('#f-name'), brand: v('#f-brand'), kcal: n('#f-kcal'), p: n('#f-p'), c: n('#f-c'), f: n('#f-f'), fi: n('#f-fi'), su: n('#f-su'), sf: n('#f-sf'), sa: n('#f-sa'), grade: v('#f-grade'), barcode: v('#f-barcode'), serving: n('#f-serv') > 0 ? { label: '1 portion', g: n('#f-serv') } : null };
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ t: Date.now(), addMeal, day, f })); } catch (e) { }
+}
+function draftClear() { try { sessionStorage.removeItem(DRAFT_KEY); } catch (e) { } }
+// Called when the app starts: reopen the food form that was open when the app was restarted.
+function draftRestore() {
+  let d = null;
+  try { d = JSON.parse(sessionStorage.getItem(DRAFT_KEY)); } catch (e) { }
+  draftClear();
+  if (!d || !d.f || Date.now() - d.t > 10 * 60 * 1000 || !S.onboarded) return;
+  if (MEALS.some(m => m[0] === d.addMeal)) addMeal = d.addMeal;
+  if (/^\d{4}-\d\d-\d\d$/.test(d.day || '') && d.day <= today()) day = d.day;
+  tab = 'today'; render();
+  sheetFood(d.f, 'The phone restarted Spuddy while the camera was open. Your food is back as you left it. Try the photo again.');
+}
 
 function sheetAI() {
   aiRes = null; aiImg = null;
@@ -167,7 +222,7 @@ function sheetAI() {
   }
   openSheet(`${shHead('✨ Ask the AI')}<div class="sh-body">
   <label class="f"><span id="ai-qlabel">What did you eat?</span><textarea class="inp" id="ai-q" rows="3" placeholder="e.g. 75 g cooked beef shoulder"></textarea></label>
-  <input type="file" id="ai-photo" accept="image/*" hidden><div id="ai-photobox" style="margin-bottom:10px"></div>
+  <div id="ai-photobox" style="margin-bottom:10px"></div>
   <button class="btn" data-a="aiAsk">Work it out</button>
   <div id="ai-out" style="margin-top:14px"></div></div>`);
   aiPhotoBox();
@@ -189,9 +244,18 @@ function renderAI() {
 
 const AI_ACTIONS = {
   openAI() { sheetAI(); },
-  aiPhoto() { $('#ai-photo').click(); },
+  async aiPhoto() { const img = await takePhoto(); if (img) { aiImg = img; aiPhotoBox(); } },
+  camShot() { camShot(); },
+  camClose() { camEnd(null); },
+  camGallery() { $('#cam-file').click(); },
   aiNoPhoto() { aiImg = null; aiPhotoBox(); },
-  labelPhoto() { if (!S.aiKey) return toast('Set up the AI helper in the Me tab first'); $('#lb-photo').click(); },
+  async labelPhoto() {
+    if (!S.aiKey) return toast('Set up the AI helper in the Me tab first');
+    draftSave();
+    const img = await takePhoto();
+    draftClear();
+    if (img && $('#f-kcal')) labelFill(img);
+  },
   aiSetup() { backToMeal = null; closeSheet(); tab = 'me'; render(); const c = $('#ai-card'); if (c) c.scrollIntoView(); },
   async aiAsk() {
     const q = $('#ai-q').value.trim();

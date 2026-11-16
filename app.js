@@ -323,7 +323,7 @@ function openSheet(html, auto, cls) {
   s.style.animation = 'none'; void s.offsetWidth; s.style.animation = '';
 }
 function closeSheet() {
-  stopScanner();
+  stopScanner(); if (typeof camEnd === 'function') camEnd(null);
   $('#sheet').hidden = true; $('#backdrop').hidden = true; $('#sheet').innerHTML = ''; cur = null;
 }
 const shHead = title => `<div class="sh-head"><h2>${title}</h2><button class="x" data-a="closeSheet" aria-label="Close">✕</button></div>`;
@@ -432,7 +432,7 @@ function sheetFood(f, note) {
   const v = x => (x === undefined || x === null || (typeof x === 'number' && isNaN(x))) ? '' : esc(x);
   openSheet(`${shHead(f.id ? 'Edit food' : 'New food')}
   <div class="sh-body">${note ? `<div class="note">${note}</div>` : ''}
-  <input type="file" id="lb-photo" accept="image/*" hidden><button class="btn ghost sm" data-a="labelPhoto">📷 Fill in from a photo of the label</button><div id="lb-msg" style="margin-bottom:12px"></div>
+  <button class="btn ghost sm" data-a="labelPhoto">📷 Fill in from a photo of the label</button><div id="lb-msg" style="margin-bottom:12px"></div>
   <input type="hidden" id="f-id" value="${v(f.id)}">
   <label class="f"><span>Name</span><input class="inp" id="f-name" value="${v(f.name)}" placeholder="e.g. Tvaroh jemný hrudkovitý"></label>
   <label class="f"><span>Brand (optional)</span><input class="inp" id="f-brand" value="${v(f.brand)}" placeholder="e.g. Rajo"></label>
@@ -704,6 +704,6 @@ document.addEventListener('visibilitychange', () => {
 });
 
 render();
-if (S.onboarded) { settleRewards(); render(); queueSync(); fetchFriends(); adventCheck(); queueCloud(); }
+if (S.onboarded) { settleRewards(); render(); queueSync(); fetchFriends(); adventCheck(); queueCloud(); draftRestore(); }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
