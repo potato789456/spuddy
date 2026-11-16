@@ -64,8 +64,8 @@ const ITEMS = [
   { id: 'daisies', cat: 'garden', sub: 'Flowers', name: 'Daisies', price: 20, x: 38, y: 388, box: '-30 -42 60 46', svg: stem(-12, 0, -12, -16) + stem(0, 0, 0, -26) + stem(12, 0, 12, -14) + flower(-12, -18, 5, '#fff', '#FFD23F') + flower(0, -28, 5.5, '#fff', '#FFD23F') + flower(12, -16, 5, '#fff', '#FFD23F') },
   { id: 'tulips', cat: 'garden', sub: 'Flowers', name: 'Tulips', price: 30, x: 338, y: 356, box: '-30 -52 60 56', svg: tulip(-13, -22, '#FF6B8B') + tulip(0, -32, '#FFC93C') + tulip(13, -24, '#E8554E') },
   { id: 'sunflower', cat: 'garden', sub: 'Flowers', name: 'Sunflower', price: 30, x: 20, y: 352, box: '-36 -84 72 88', svg: stem(0, 0, 0, -56, 4) + `<ellipse cx="-9" cy="-24" rx="9" ry="4.5" fill="#6DBE5A" transform="rotate(25 -9 -24)"/><ellipse cx="9" cy="-34" rx="9" ry="4.5" fill="#6DBE5A" transform="rotate(-25 9 -34)"/>` + flower(0, -62, 12, '#FFC93C', '#7A4A21', 10) },
-  { id: 'lavender', cat: 'garden', sub: 'Flowers', name: 'Lavender', price: 40, x: 250, y: 392, box: '-30 -48 60 52', svg: [-16, -8, 0, 8, 16].map(d => stem(d * 0.3, 0, d, -30, 2) + [0, 1, 2, 3].map(k => `<circle cx="${(d * (1 + k * 0.04)).toFixed(1)}" cy="${-30 - k * 4}" r="${3.4 - k * 0.5}" fill="#9B7BE0"/>`).join('')).join('') },
-  { id: 'roses', cat: 'garden', sub: 'Flowers', name: 'Rose bush', price: 50, x: 72, y: 350, box: '-36 -42 72 46', svg: `<circle cx="-14" cy="-10" r="13" fill="#5FAE55"/><circle cx="14" cy="-10" r="13" fill="#5FAE55"/><circle cx="0" cy="-18" r="18" fill="#6DBE5A"/>` + [[-14, -12], [0, -26], [13, -14], [-2, -10], [8, -26]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="#E8456B"/><circle cx="${p[0]}" cy="${p[1]}" r="2" fill="#FF8FA8"/>`).join('') },
+  { id: 'lavender', cat: 'garden', sub: 'Flowers', name: 'Lavender', price: 40, x: 312, y: 398, box: '-30 -48 60 52', svg: [-16, -8, 0, 8, 16].map(d => stem(d * 0.3, 0, d, -30, 2) + [0, 1, 2, 3].map(k => `<circle cx="${(d * (1 + k * 0.04)).toFixed(1)}" cy="${-30 - k * 4}" r="${3.4 - k * 0.5}" fill="#9B7BE0"/>`).join('')).join('') },
+  { id: 'roses', cat: 'garden', sub: 'Flowers', name: 'Rose bush', price: 50, x: 40, y: 392, box: '-36 -42 72 46', svg: `<circle cx="-14" cy="-10" r="13" fill="#5FAE55"/><circle cx="14" cy="-10" r="13" fill="#5FAE55"/><circle cx="0" cy="-18" r="18" fill="#6DBE5A"/>` + [[-14, -12], [0, -26], [13, -14], [-2, -10], [8, -26]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="#E8456B"/><circle cx="${p[0]}" cy="${p[1]}" r="2" fill="#FF8FA8"/>`).join('') },
   { id: 'mushrooms', cat: 'garden', sub: 'Decorations', name: 'Mushrooms', price: 25, x: 288, y: 374, box: '-26 -34 52 38', svg: `<rect x="-10" y="-14" width="8" height="15" rx="3" fill="#FFF3E0"/><path d="M-20 -12 Q-6 -36 8 -12Z" fill="#E8554E"/><circle cx="-8" cy="-20" r="2.5" fill="#fff"/><circle cx="-1" cy="-15" r="1.8" fill="#fff"/><rect x="9" y="-8" width="6" height="9" rx="2.5" fill="#FFF3E0"/><path d="M3 -7 Q12 -22 21 -7Z" fill="#E8554E"/><circle cx="12" cy="-11" r="1.8" fill="#fff"/>` },
   { id: 'pumpkin', cat: 'garden', sub: 'Decorations', name: 'Pumpkin', price: 35, x: 206, y: 393, box: '-26 -30 52 34', svg: `<ellipse cx="-9" cy="-10" rx="9" ry="10.5" fill="#EE8A2B"/><ellipse cx="9" cy="-10" rx="9" ry="10.5" fill="#EE8A2B"/><ellipse cx="0" cy="-10" rx="9" ry="11.5" fill="#F7A043"/><rect x="-2" y="-26" width="4" height="7" rx="1.5" fill="#5FA644"/>` },
   { id: 'butterfly', cat: 'garden', sub: 'Decorations', name: 'Butterfly', price: 45, x: 62, y: 262, box: '-20 -18 40 32', svg: `<ellipse cx="-7" cy="-5" rx="7" ry="9" fill="#C58BF2" transform="rotate(-20 -7 -5)"/><ellipse cx="7" cy="-5" rx="7" ry="9" fill="#C58BF2" transform="rotate(20 7 -5)"/><ellipse cx="-5" cy="6" rx="4.5" ry="5.5" fill="#F29AC1"/><ellipse cx="5" cy="6" rx="4.5" ry="5.5" fill="#F29AC1"/><path d="M0 -8 L0 9" stroke="#3B2A1A" stroke-width="2.5" stroke-linecap="round"/>` },
@@ -279,15 +279,12 @@ function oneEach(placed) {
   }).reverse();
 }
 // Fun & relax: one big item at the back of the lawn on the right. Width it is drawn at, and where it stands.
-const FUN_W = { pool: 236, treeswing: 172 }, FUN_BASE = { pool: 352 }, FUN_RIGHT = 357;
-// Flowers: the chosen kind grows all over the garden.
-const FLOWER_SPOTS = [[24, 266], [70, 338], [338, 374], [30, 420], [300, 432], [170, 444], [96, 472], [236, 502], [330, 520], [52, 532], [150, 534]];
+const FUN_W = { pool: 236, treeswing: 172 }, FUN_BASE = { pool: 316 }, FUN_RIGHT = 357;
 function gardenParts(i) {
   if (i.sub === 'Fun & relax') {
     const b = i.box.split(' ').map(Number), s = (FUN_W[i.id] || 196) / b[2];
-    return [Object.assign({}, i, { x: FUN_RIGHT - (b[0] + b[2]) * s, y: FUN_BASE[i.id] || 330, s })];
+    return [Object.assign({}, i, { x: FUN_RIGHT - (b[0] + b[2]) * s, y: FUN_BASE[i.id] || 298, s })];
   }
-  if (i.sub === 'Flowers') return FLOWER_SPOTS.map((p, n) => Object.assign({}, i, { x: p[0], y: p[1], s: n % 3 === 1 ? 0.85 : 1 }));
   return [Object.assign({}, i)];
 }
 function gardenSVG(eq, placed, mood, orn) {
