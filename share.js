@@ -53,7 +53,14 @@ function mySummary() {
     const x = totals(d);
     days.push({ d, k: Math.round(x.kcal), p: Math.round(x.p), c: Math.round(x.c), f: Math.round(x.f), fi: Math.round(x.fi), g: mixGrade(dayLog(d)) });
   }
-  return { v: 1, name: S.share.name, streak: streakInfo().n, eq: S.equipped, garden: S.garden, orn: S.advent.placed, goal: S.goal, days, at: Date.now() };
+  // Today's and yesterday's meals food by food (values per 100 g), so a partner can copy a meal.
+  const meals = [];
+  for (let n = 0; n < 2; n++) {
+    const d = addDays(t, -n);
+    if (!hasLog(d)) continue;
+    meals.push({ d, es: dayLog(d).slice(0, 60).map(e => { const q = 100 / (e.grams || 100), r = v => Math.round((v || 0) * q * 10) / 10; return { m: e.meal, n: e.name, g: r1(e.grams), k: r(e.kcal), p: r(e.p), c: r(e.c), f: r(e.f), fi: r(e.fi), gr: entryGrade(e) || '' }; }) });
+  }
+  return { v: 1, name: S.share.name, streak: streakInfo().n, eq: S.equipped, garden: S.garden, orn: S.advent.placed, goal: S.goal, days, meals, at: Date.now() };
 }
 async function syncUp() {
   if (!S.share.on || !S.share.uid) return;
@@ -147,6 +154,67 @@ function agoText(ms) {
   if (m < 60 * 36) return Math.round(m / 60) + ' h ago';
   return Math.round(m / 1440) + ' days ago';
 }
+/* ---------- copy a partner's meal ---------- */
+// Their shared meals, checked and cleaned up (this is data from another phone).
+function friendMeals(c) {
+  const out = [], t = today();
+  (Array.isArray(c && c.meals) ? c.meals : []).slice(0, 2).forEach(day => {
+    if (!day || (day.d !== t && day.d !== addDays(t, -1)) || !Array.isArray(day.es)) return;
+    MEALS.forEach(([id, label]) => {
+      const es = day.es.slice(0, 60).filter(e => e && e.m === id && typeof e.n === 'string' && e.n.trim() && numOr(e.g, 0) > 0)
+        .map(e => ({ n: e.n.slice(0, 90), g: numOr(e.g, 0), k: numOr(e.k, 0), p: numOr(e.p, 0), c: numOr(e.c, 0), f: numOr(e.f, 0), fi: numOr(e.fi, 0), gr: /^[A-E]$/.test(e.gr || '') ? e.gr : null }));
+      if (es.length) out.push({ d: day.d, meal: id, label, es, kcal: es.reduce((a, e) => a + e.k * e.g / 100, 0) });
+    });
+  });
+  return out;
+}
+function copyRows(uid, c) {
+  const fm = friendMeals(c);
+  if (!fm.length) return '';
+  return `<div class="listhead" style="margin-top:14px">Copy a meal</div>` + fm.map(m => `<button class="food" style="width:100%" data-a="copyMeal" data-uid="${esc(uid)}" data-d="${m.d}" data-meal="${m.meal}"><div class="grow"><div class="n">${m.label} <span class="muted small">· ${m.d === today() ? 'today' : 'yesterday'}</span></div><div class="muted small cpnames">${esc(m.es.map(e => e.n).join(', '))}</div></div><div class="k">${Math.round(m.kcal)} kcal</div></button>`).join('');
+}
+let cp = null;
+function sheetCopy(uid, d, meal) {
+  const c = S.share.cache[uid], m = friendMeals(c).find(x => x.d === d && x.meal === meal);
+  if (!m) return;
+  cp = { items: m.es, dest: meal };
+  openSheet(`${shHead('Copy ' + esc(String(c.name || 'their').slice(0, 20)) + (c.name ? '’s ' : ' ') + m.label.toLowerCase())}<div class="sh-body">
+  <p class="muted small" style="margin-bottom:6px">Change the grams to what you are having. Put 0 to leave a food out.</p>
+  ${m.es.map((e, i) => `<div class="cprow"><div class="grow"><div class="n">${badge(e.gr)}${esc(e.n)}</div><div class="muted small" id="cp-k${i}"></div></div><input class="inp cp-g" data-i="${i}" inputmode="decimal" value="${e.g}" aria-label="Grams"><span class="muted">g</span></div>`).join('')}
+  <div class="listhead" style="margin-top:14px">Add to my</div>
+  <div class="seg" id="cp-dest" style="margin-bottom:14px">${MEALS.map(x => `<button data-a="copyDest" data-m="${x[0]}">${x[1]}</button>`).join('')}</div>
+  <button class="btn" data-a="copyAdd" id="cp-add"></button></div>`);
+  updCopy();
+}
+function copyGrams(i) { const el = document.querySelector(`.cp-g[data-i="${i}"]`), g = el ? num(el.value) : 0; return g > 0 ? g : 0; }
+function updCopy() {
+  if (!cp || !$('#cp-add')) return;
+  let tot = 0;
+  cp.items.forEach((e, i) => { const k = copyGrams(i) / 100; tot += e.k * k; $('#cp-k' + i).textContent = `${Math.round(e.k * k)} kcal · P ${r1(e.p * k)} · C ${r1(e.c * k)} · F ${r1(e.f * k)}`; });
+  document.querySelectorAll('#cp-dest button').forEach(b => b.classList.toggle('on', b.dataset.m === cp.dest));
+  $('#cp-add').textContent = `Add to today · ${Math.round(tot)} kcal`;
+}
+document.addEventListener('input', ev => { if (ev.target.classList && ev.target.classList.contains('cp-g')) updCopy(); });
+function copyAdd() {
+  if (!cp) return;
+  const d = today(), mine = Object.values(S.foods);
+  let n = 0;
+  cp.items.forEach((e, i) => {
+    const g = copyGrams(i); if (!g) return;
+    // Link it to a food I already have with the same name; otherwise keep it as one of my foods.
+    const key = norm(e.n);
+    let f = mine.find(x => norm(x.name + (x.brand ? ' (' + x.brand + ')' : '')) === key) || BASE.find(x => norm(x.name) === key);
+    if (!f) { f = { id: 'c:' + uid(), custom: true, name: e.n, brand: '', kcal: e.k, p: e.p, c: e.c, f: e.f, fi: e.fi, su: null, sf: null, sa: null, grade: e.gr || '', serving: null, barcode: '' }; S.foods[f.id] = f; mine.push(f); }
+    const k = g / 100;
+    (S.log[d] || (S.log[d] = [])).push({ id: uid(), foodId: f.id, name: e.n, meal: cp.dest, grams: g, kcal: e.k * k, p: e.p * k, c: e.c * k, f: e.f * k, fi: e.fi * k, gr: e.gr || gradeOf(f) });
+    const u = S.uses[f.id] || (S.uses[f.id] = { n: 0 }); u.n++; n++;
+  });
+  if (!n) return toast('Every food is set to 0 g');
+  const label = MEALS.find(x => x[0] === cp.dest)[1].toLowerCase();
+  cp = null; save(); closeSheet(); settleRewards(); render();
+  toast(`Added ${n} ${n === 1 ? 'food' : 'foods'} to your ${label} ✓`);
+}
+
 function friendCard(f) {
   const c = S.share.cache[f.uid];
   const del = `<button class="x" data-a="delFriend" data-uid="${esc(f.uid)}" aria-label="Remove">✕</button>`;
@@ -154,6 +222,7 @@ function friendCard(f) {
   const n = v => Math.round(Number(v) || 0), g = x => /^[A-E]$/.test(x || '') ? x : null;
   const goal = c.goal || {}, t = today(), days = Array.isArray(c.days) ? c.days : [], td = days.find(d => d.d === t);
   const eq = {}; ['hat', 'hair', 'glasses', 'neck', 'outfit', 'shoes', 'hand', 'bg', 'costume', 'pet', 'fence', 'ground'].forEach(k => { const i = ITEM_MAP[c.eq && c.eq[k]]; if (i && i.cat === k) eq[k] = i.id; });
+  eq.tint = {}; Object.entries((c.eq && c.eq.tint) || {}).forEach(([id, col]) => { if (TINTS[id] && /^#[0-9a-f]{6}$/i.test(col)) eq.tint[id] = col; });
   const garden = (Array.isArray(c.garden) ? c.garden : []).filter(id => ITEM_MAP[id]);
   const col = k => { const over = n(k) - n(goal.kcal); return over <= 0 ? 'g' : over <= 100 ? 'o' : 'r'; };
   let week = '';
@@ -169,7 +238,7 @@ function friendCard(f) {
     <div class="bar" style="margin:8px 0"><i style="width:${pct}%;background:var(--${{ g: 'green', o: 'orange', r: 'red' }[col(td.k)]})"></i></div>
     <div class="muted small">Protein ${n(td.p)}/${n(goal.p)} · Carbs ${n(td.c)}/${n(goal.c)} · Fat ${n(td.f)}/${n(goal.f)} · Fiber ${n(td.fi)}/${n(goal.fi)} g</div>`
       : `<p class="muted" style="margin-top:12px">Nothing logged yet today.</p>`}
-  <div class="wk7">${week}</div></div>`;
+  <div class="wk7">${week}</div>${copyRows(f.uid, c)}</div>`;
 }
 function viewFriends() {
   const sh = S.share;
@@ -191,6 +260,9 @@ function viewFriends() {
 const rerenderFriends = () => { if (tab === 'friends') render(); };
 
 const SHARE_ACTIONS = {
+  copyMeal(el) { sheetCopy(el.dataset.uid, el.dataset.d, el.dataset.meal); },
+  copyDest(el) { if (cp) { cp.dest = el.dataset.m; updCopy(); } },
+  copyAdd() { copyAdd(); },
   async shareOn() {
     const name = ($('#sh-name').value || '').trim();
     if (!name) return toast('Type your name first');

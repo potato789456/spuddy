@@ -316,3 +316,10 @@ button.pill { font-size: 14px; }
 .btn:disabled { opacity: .5; }
 textarea.inp { resize: none; font-family: inherit; }
 html[data-theme="dark"] .preview .potato { background: #3A2E22; }
+
+/* copy a partner's meal */
+.cprow { display: flex; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.cprow .n { font-weight: 700; }
+.cprow .inp { width: 86px; flex: none; text-align: right; padding: 9px 10px; }
+.cpnames { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 56vw; }
+#cp-dest button { font-size: 13px; padding: 10px 2px; }
