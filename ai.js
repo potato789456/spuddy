@@ -88,10 +88,10 @@ function takePhoto() {
 }
 function camShot() {
   const v = $('#cam video'); if (!cam || !v || !v.videoWidth) return;
-  const k = Math.min(1, 1600 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement('canvas');
+  const k = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight)), cv = document.createElement('canvas');
   cv.width = Math.round(v.videoWidth * k); cv.height = Math.round(v.videoHeight * k);
   cv.getContext('2d').drawImage(v, 0, 0, cv.width, cv.height);
-  camEnd(cv.toDataURL('image/jpeg', 0.85).split(',')[1]);
+  camEnd(cv.toDataURL('image/jpeg', 0.8).split(',')[1]);
 }
 document.addEventListener('change', async ev => {
   if (ev.target.id !== 'cam-file' || !ev.target.files[0]) return;
@@ -111,32 +111,44 @@ Answer with JSON only, no other text, in exactly this shape:
 // Sends one question to Gemini and returns its JSON answer.
 // The request is tried in up to three forms, because Google has changed how a fixed answer format is asked for:
 // the current form, the earlier form, and last a plain request that relies on the instructions alone.
-async function aiCall(system, input, schema) {
-  const formats = [{ response_format: { type: 'text', mime_type: 'application/json', schema } }, { response_mime_type: 'application/json', response_format: schema }, {}];
+async function aiCall(system, input, schema, fast) {
+  const fixed = { response_format: { type: 'text', mime_type: 'application/json', schema } };
+  // "fast" (reading a label) is plain copying: it asks the model not to think it over first, and starts with the quickest model.
+  const formats = (fast ? [Object.assign({ generation_config: { thinking_level: 'minimal' } }, fixed)] : []).concat([fixed, { response_mime_type: 'application/json', response_format: schema }, {}]);
+  const memo = fast ? 'fast' : 'full';
+  if (!S.aiModel || typeof S.aiModel !== 'object') S.aiModel = {};
+  // Start with the model and request form that answered last time (for a few hours), so a busy model is not asked again on every question.
+  const m = S.aiModel[memo], pref = m && Date.now() - m.t < 3 * 3600 * 1000 && AI_MODELS.includes(m.m) ? m.m : null;
+  const base = fast ? AI_MODELS.slice().reverse() : AI_MODELS;
+  const order = pref ? [pref].concat(base.filter(x => x !== pref)) : base;
   let last = null;
-  // Start with the model that answered last time (for a few hours), so a busy model is not asked again on every question.
-  const pref = S.aiModel && Date.now() - S.aiModel.t < 3 * 3600 * 1000 && AI_MODELS.includes(S.aiModel.m) ? S.aiModel.m : null;
-  const order = pref ? [pref].concat(AI_MODELS.filter(m => m !== pref)) : AI_MODELS;
   for (const model of order) {
-    for (const fmt of formats) {
+    const start = model === pref && m.f < formats.length ? m.f : 0;
+    for (let fi = start; fi < formats.length; fi++) {
       let res;
+      const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 25000);
       try {
         res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
-          method: 'POST',
+          method: 'POST', signal: ctl.signal,
           headers: { 'content-type': 'application/json', 'x-goog-api-key': S.aiKey },
-          body: JSON.stringify(Object.assign({ model, input, system_instruction: system, store: false }, fmt)),
+          body: JSON.stringify(Object.assign({ model, input, system_instruction: system, store: false }, formats[fi])),
         });
-      } catch (e) { throw new Error('No connection. The AI helper needs internet.'); }
+      } catch (e) {
+        clearTimeout(timer);
+        if (e && e.name === 'AbortError') { last = { status: 504, msg: '' }; break; }   // too slow: try the next model
+        throw new Error('No connection. The AI helper needs internet.');
+      }
+      clearTimeout(timer);
       let data = null;
       try { data = await res.json(); } catch (e) { }
       if (Array.isArray(data)) data = data[0];
-      if (res.ok) { if (model !== pref) { S.aiModel = { m: model, t: Date.now() }; persist(); } return aiJson(data); }
+      if (res.ok) { if (model !== pref || fi !== m.f) { S.aiModel[memo] = { m: model, f: fi, t: Date.now() }; persist(); } return aiJson(data); }
       const msg = (data && data.error && data.error.message) || '';
       if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new Error('The AI key was not accepted. Check it in the Me tab.');
       last = { status: res.status, msg };
       if (res.status !== 400) break;        // 400 = this request form was not understood: try the next form
     }
-    if (last.status !== 404 && last.status !== 429 && last.status < 500) break;   // only a missing, busy or used-up model is worth another try
+    if (last.status !== 400 && last.status !== 404 && last.status !== 429 && last.status < 500) break;   // only a missing, busy or used-up model is worth another try
   }
   if (last.status === 429) throw new Error('The free AI limit is used up for now. Try again later or tomorrow.');
   if (last.status >= 500) throw new Error('The AI is busy right now. Try again in a moment.');
@@ -184,7 +196,7 @@ async function labelFill(image) {
   const msg = t => { const m = $('#lb-msg'); if (m) m.innerHTML = t; };
   msg('<p class="center muted" style="margin:10px 0">Reading the label… 🥔</p>');
   try {
-    const out = await aiCall(LABEL_SYSTEM, aiImage('Read this nutrition label.', image), LABEL_SCHEMA);
+    const out = await aiCall(LABEL_SYSTEM, aiImage('Read this nutrition label.', image), LABEL_SCHEMA, true);
     if (!$('#f-kcal')) return;   // the form was closed meanwhile
     const got = LABEL_NUMS.filter(k => isFinite(+out[k]) && +out[k] >= 0);
     if (out.is_label === false || !got.includes('kcal')) return msg('<div class="note" style="margin-top:10px">I could not read a nutrition table in that photo. Try again closer and straight on, with good light.</div>');
