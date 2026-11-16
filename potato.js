@@ -152,10 +152,31 @@ const ITEMS = [
 ];
 const ITEM_MAP = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 
+/* Recolouring: [main colour, darker trim colour] as drawn. A chosen colour replaces the main one, a darker shade of it the trim. */
+const TINTS = {
+  hairshort: ['#6B4423'], hairlong: ['#F2C94C'], hairpony: ['#A0522D'], hairpig: ['#4A78C2'], haircurly: ['#3B2A1A'], hairbun: ['#2B2B33'], hairbob: ['#F58BB7'], hairmohawk: ['#FF4F9A'], hairginger: ['#D9662B'],
+  round: ['#3B2A1A'], shades: ['#22222A'], hearts: ['#FF5C8A', '#D93A6B'],
+  bow: ['#FF7FAE', '#E0558A'], beanie: ['#E86A6A'], tophat: ['#2B2B33'],
+  bowtie: ['#5B8DEF', '#3E6BC4'], scarf: ['#E8554E'],
+  startee: ['#2F5DA8', '#244A87'], sweater: ['#7CC6A4', '#5DAA88'], tutu: ['#FFB3D1', '#F58BB7'], cape: ['#D7263D', '#A81B2E'],
+  mug: ['#5B8DEF', '#3E6BC4'], balloon: ['#FF6B6B'], mittens: ['#E0463C'], boxing: ['#C62F3B'],
+  pinkshoes: ['#FF8FB6'], slippers: ['#F7C8D8', '#E79CB8'], boots: ['#8C5A32', '#5A3A22'], rainboots: ['#FFD23F', '#E0A800'],
+};
+const PALETTE = ['#2B2B33', '#6B4423', '#A0522D', '#D9662B', '#F2C94C', '#E9E4DA', '#E0463C', '#FF7FAE', '#9B6BD9', '#4A78C2', '#3FB8A8', '#6DBE5A'];
+const shade = (hex, k) => '#' + [1, 3, 5].map(i => Math.round(parseInt(hex.slice(i, i + 2), 16) * k).toString(16).padStart(2, '0')).join('');
+function tinted(i, tint) {
+  const c = i && tint && tint[i.id], t = i && TINTS[i.id];
+  if (!c || !t) return i;
+  const rep = s => typeof s !== 'string' ? s : (t[1] ? s.split(t[1]).join('\u0001') : s).split(t[0]).join(c).split('\u0001').join(shade(c, 0.72));
+  const o = Object.assign({}, i);
+  ['svg', 'svgL', 'svgR', 'back'].forEach(k => { if (o[k]) o[k] = rep(o[k]); });
+  return o;
+}
+
 /* ---------- potato ---------- */
 function potatoInner(eq, mood, animate) {
   eq = eq || {};
-  const I = c => ITEM_MAP[eq[c]];
+  const I = c => tinted(ITEM_MAP[eq[c]], eq.tint);
   const it = c => { const i = I(c); return i && i.svg ? i.svg : ''; };
   const cos = I('costume'), outfit = cos || I('outfit'), hand = I('hand') || {};   // a costume takes the place of hair, hat, neck and outfit
   const eyes = mood === 'sleepy'
@@ -266,5 +287,5 @@ function itemThumb(i, px) {
     const sc = i.cat === 'bg' ? scene(i.id) : scene('meadow', i.cat === 'fence' ? i.id : 'picket', i.cat === 'ground' ? i.id : 'lawn');
     return `<svg class="thumb scene" viewBox="${i.cat === 'bg' ? '0 40 360 360' : i.cat === 'fence' ? '60 130 120 120' : '40 170 190 190'}" width="${px}" height="${px}" xmlns="http://www.w3.org/2000/svg">${sc.back}${sc.hills}${sc.front}</svg>`;
   }
-  return potatoSVG({ [i.cat]: i.id }, 'happy', px);
+  return potatoSVG({ [i.cat]: i.id, tint: typeof S !== 'undefined' ? S.equipped.tint : null }, 'happy', px);
 }

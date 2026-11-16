@@ -305,3 +305,14 @@ button.pill { font-size: 14px; }
 .tray button { background: var(--card); border-radius: 14px; padding: 4px; line-height: 0; }
 .newornaments { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .newornaments div { display: flex; flex-direction: column; align-items: center; font-size: 14px; }
+
+/* item preview and colours */
+.preview { display: flex; justify-content: center; margin-bottom: 14px; }
+.preview .potato { background: #FFF1D6; border-radius: 26px; }
+.preview.scenic .garden { width: auto; height: 46vh; max-width: 100%; }
+.swatches { display: flex; flex-wrap: wrap; gap: 10px; }
+.sw { width: 38px; height: 38px; border-radius: 50%; border: 3px solid var(--card); box-shadow: 0 0 0 2px var(--line); }
+.sw.on { box-shadow: 0 0 0 3px var(--green); }
+.btn:disabled { opacity: .5; }
+textarea.inp { resize: none; font-family: inherit; }
+html[data-theme="dark"] .preview .potato { background: #3A2E22; }

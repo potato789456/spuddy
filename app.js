@@ -38,6 +38,8 @@ function normalize() {
   if (!S.share || typeof S.share !== 'object') S.share = {};
   S.share = Object.assign({ on: false, name: '', friends: [], cache: {}, ffoods: {} }, S.share);
   if (!Array.isArray(S.orn)) S.orn = [];
+  if (!S.equipped.tint || typeof S.equipped.tint !== 'object') S.equipped.tint = {};
+  if (typeof S.aiKey !== 'string') S.aiKey = '';
   S.advent = Object.assign({ year: null, order: [], got: 0, placed: {} }, S.advent || {});
   if (!(S.goal.fi >= 0)) S.goal.fi = 25;
   Object.values(S.foods).forEach(f => { if (!(f.fi >= 0)) f.fi = 0; });
@@ -109,7 +111,7 @@ function gradeOf(f) {
   if (!f) return null;
   if (!f.custom && f.gr !== undefined) return f.gr;                       // built-in food
   if (/^[a-e]$/i.test(f.grade || '')) return f.grade.toUpperCase();       // official grade from the barcode database
-  if (isNum(f.su) && isNum(f.sf) && isNum(f.sa)) return nutriGrade({ kcal: f.kcal, p: f.p, f: f.f, fi: f.fi || 0, su: f.su, sf: f.sf, sa: f.sa });
+  if (isNum(f.su) && isNum(f.sf) && isNum(f.sa)) return nutriGrade({ kcal: f.kcal, p: f.p, f: f.f, fi: f.fi || 0, su: f.su, sf: f.sf, sa: f.sa, fv: f.fv, type: f.type });
   return null;
 }
 function entryGrade(e) { const f = getFood(e.foodId); return f ? gradeOf(f) : (e.gr || null); }
@@ -205,6 +207,38 @@ function shopItem(i) {
   const label = on ? (i.cat === 'garden' ? 'In garden ✓' : FIXED_SLOTS.includes(i.cat) ? 'Using ✓' : i.cat === 'pet' ? 'With you ✓' : 'Wearing ✓') : owned ? 'Owned' : COIN + ' ' + i.price;
   return `<button class="item ${on ? 'on' : ''} ${owned ? 'owned' : 'locked'}" data-a="item" data-id="${i.id}">${itemThumb(i, 78)}<div class="nm">${i.name}</div><div class="pr">${label}</div></button>`;
 }
+/* Item page: a big preview, then buy / wear / colour */
+let curItem = null;
+const SCENIC = ['garden', 'pet', 'bg', 'fence', 'ground'], UNDER_COSTUME = ['hair', 'hat', 'neck', 'outfit'];
+function sheetItem(id, still) {
+  const i = ITEM_MAP[id]; if (!i) return;
+  curItem = id;
+  const owned = S.owned.includes(id), on = i.cat === 'garden' ? S.garden.includes(id) : S.equipped[i.cat] === id;
+  const eq = Object.assign({}, S.equipped);
+  let pic;
+  if (SCENIC.includes(i.cat)) {
+    if (i.cat !== 'garden') eq[i.cat] = id;
+    pic = gardenSVG(eq, i.cat === 'garden' && !on ? S.garden.concat(id) : S.garden, 'happy', S.advent.placed);
+  } else {
+    eq[i.cat] = id;
+    if (UNDER_COSTUME.includes(i.cat)) delete eq.costume;
+    pic = potatoSVG(eq, 'happy', 200);
+  }
+  const verb = i.cat === 'garden' ? ['Put in the garden', 'Take out of the garden'] : i.cat === 'pet' ? ['Bring along', 'Send home'] : FIXED_SLOTS.includes(i.cat) ? ['Use this', ''] : ['Wear', 'Take off'];
+  let act;
+  if (i.gift && !owned) act = '<div class="note center">🎁 Arrives as a gift on 1 December.</div>';
+  else if (!owned) act = S.coins >= i.price ? `<button class="btn" data-a="buyItem">Buy for ${COIN} ${i.price}</button>` : `<button class="btn" disabled>${COIN} ${i.price}</button><p class="center muted small" style="margin-top:8px">You need ${i.price - S.coins} more coins.</p>`;
+  else if (on && !verb[1]) act = '<div class="note center">In use ✓</div>';
+  else act = `<button class="btn ${on ? 'ghost' : ''}" data-a="toggleItem">${on ? verb[1] : verb[0]}</button>`;
+  const t = TINTS[id], chosen = S.equipped.tint[id] || '';
+  const colours = !t ? '' : !owned ? '<p class="center muted small" style="margin-top:12px">🎨 You can pick its colour once it is yours.</p>'
+    : `<div class="listhead">Colour</div><div class="swatches">${[''].concat(PALETTE.filter(c => c !== t[0])).map(c => `<button class="sw ${c === chosen ? 'on' : ''}" data-a="tint" data-c="${c}" style="background:${c || t[0]}" aria-label="${c ? 'Colour' : 'Original colour'}"></button>`).join('')}</div>`;
+  const hidden = owned && on && UNDER_COSTUME.includes(i.cat) && S.equipped.costume ? '<p class="center muted small" style="margin-top:10px">Hidden while a costume is on.</p>' : '';
+  openSheet(`${shHead(esc(i.name))}<div class="sh-body"><div class="preview ${SCENIC.includes(i.cat) ? 'scenic' : ''}">${pic}</div>${act}${hidden}${colours}</div>`, true);
+  if (still) $('#sheet').style.animation = 'none';
+}
+function itemChanged() { save(); const y = window.scrollY; render(); window.scrollTo(0, y); sheetItem(curItem, true); }
+
 function viewPotato() {
   const st = streakInfo();
   const sect = (title, items) => `<div class="listhead">${title}</div><div class="shop">${items.map(shopItem).join('')}</div>`;
@@ -243,6 +277,9 @@ function viewMe() {
     <label class="f"><span>Pace</span><select class="inp" id="p-pace">${opt(0, p.pace, 'Maintain weight')}${opt(0.25, p.pace, 'Gentle: about −0.25 kg a week')}${opt(0.5, p.pace, 'Steady: about −0.5 kg a week')}</select></label>
     <button class="btn ghost sm" data-a="suggest">✨ Suggest my goal</button></div>
   ${S.onboarded ? `<div class="card"><b>Appearance</b><div class="seg" style="margin-top:10px">${[['light', 'Light'], ['dark', 'Dark'], ['auto', 'Same as phone']].map(([k, l]) => `<button class="${S.theme === k ? 'on' : ''}" data-a="theme" data-t="${k}">${l}</button>`).join('')}</div></div>` : ''}
+  ${S.onboarded ? `<div class="card" id="ai-card"><b>✨ AI helper</b><p class="muted small" style="margin:6px 0 12px">Describe a food in your own words and the AI works out its calories and macros. It needs a Claude API key, which is kept on this phone only. What you type there is sent to Anthropic to get the answer.</p>
+    <label class="f"><span>${S.aiKey ? 'Key saved ✓ — paste a new one to replace it' : 'Claude API key'}</span><input class="inp" id="ai-key" type="password" autocomplete="off" value="${esc(S.aiKey)}" placeholder="sk-ant-…"></label>
+    <button class="btn ghost sm" data-a="saveKey">Save key</button></div>` : ''}
   ${S.onboarded ? `<div class="card"><b>Backup</b><p class="muted small" style="margin:6px 0 12px">Everything lives on this phone only. A backup file holds all your foods, every logged day and your potato with its clothes and garden. Save it to Files / iCloud Drive about once a week.</p>
     <p class="small" style="margin-bottom:12px"><b>Last backup:</b> ${S.lastBackup ? niceDate(S.lastBackup) : 'never'}</p>
     <div class="btns"><button class="btn ghost sm" data-a="exportData">Save backup</button><button class="btn ghost sm" data-a="importData">Restore</button></div>
@@ -329,12 +366,12 @@ function sheetAdd() {
   const meal = MEALS.find(m => m[0] === addMeal);
   openSheet(`${shHead('Add to ' + meal[1])}
   <div style="padding:0 16px"><input class="inp" id="q" type="search" placeholder="Search food…" autocomplete="off" autocorrect="off">
-  <div class="btns" style="margin-top:10px"><button class="btn ghost sm" data-a="scan">📷 Scan barcode</button><button class="btn ghost sm" data-a="newFood">＋ New food</button></div></div>
+  <div class="btns" style="margin-top:10px"><button class="btn ghost sm" data-a="scan">📷 Scan</button><button class="btn ghost sm" data-a="newFood">＋ New food</button><button class="btn ghost sm" data-a="openAI">✨ Ask AI</button></div></div>
   <div class="sh-body" id="foodlist"></div>`);
   renderFoodList('');
 }
 function foodRow(f) {
-  return `<div class="row" style="gap:6px"><button class="food grow" data-a="pick" data-id="${esc(f.id)}"><div class="grow"><div class="n">${esc(f.name)}</div><div class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}${f.shared ? 'from ' + esc(f.owner) + ' · ' : ''}per 100 g</div></div>${badge(gradeOf(f))}<div class="k">${Math.round(f.kcal)} kcal</div></button>${f.custom ? `<button class="edit" style="margin-bottom:8px" data-a="editFood" data-id="${esc(f.id)}" aria-label="Edit food">✏️</button>` : ''}</div>`;
+  return `<div class="row" style="gap:6px"><button class="food grow" data-a="pick" data-id="${esc(f.id)}"><div class="grow"><div class="n">${esc(f.name)}</div><div class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}${f.shared ? 'from ' + esc(f.owner) + ' · ' : ''}per 100 g</div></div>${badge(gradeOf(f))}<div class="k">${Math.round(f.kcal)} kcal</div></button>${f.shared ? '' : `<button class="edit" style="margin-bottom:8px" data-a="editFood" data-id="${esc(f.id)}" aria-label="Edit food">✏️</button>`}</div>`;
 }
 function myFoods() {
   const ids = new Set([...Object.keys(S.foods), ...Object.keys(S.uses)]);
@@ -404,7 +441,7 @@ function sheetFood(f, note) {
   <input type="hidden" id="f-grade" value="${v(f.grade)}">
   <label class="f"><span>Barcode (optional)</span><input class="inp" id="f-barcode" inputmode="numeric" value="${v(f.barcode)}"></label>
   <button class="btn" data-a="saveFood">Save food</button>
-  ${f.id ? '<button class="btn danger" style="margin-top:10px" data-a="delFood">Delete food</button>' : ''}</div>`);
+  ${!f.id || (BASE_MAP[f.id] && !S.foods[f.id]) ? '' : `<button class="btn danger" style="margin-top:10px" data-a="delFood">${BASE_MAP[f.id] ? 'Put the original values back' : 'Delete food'}</button>`}</div>`);
 }
 
 /* Scanner */
@@ -519,7 +556,7 @@ const A = {
   openAdd(el) { addMeal = el.dataset.meal; sheetAdd(); },
   pick(el) { const f = getFood(el.dataset.id); if (f) sheetAmount(f); },
   newFood() { const q = $('#q'); sheetFood(q && q.value.trim() ? { name: q.value.trim() } : null); },
-  editFood(el) { sheetFood(S.foods[el.dataset.id]); },
+  editFood(el) { const f = getFood(el.dataset.id); if (f) sheetFood(f, BASE_MAP[f.id] && !S.foods[f.id] ? 'This is a basic food. Your changes are saved on this phone and used from now on. Days you already logged stay as they are.' : ''); },
   async scan() { sheetScan(); },
   lookup() { onCode($('#code').value); },
   unit(el) { cur.unit = el.dataset.u; $('#amount').value = cur.unit === 's' ? 1 : 100; updAmount(); },
@@ -554,31 +591,41 @@ const A = {
     if (!(kcal >= 0)) return toast('Enter the calories per 100 g');
     const z = id => { const n = num($(id).value); return n >= 0 ? n : 0; };
     const opt = id => { const n = num($(id).value); return n >= 0 ? n : null; };
-    const sg = num($('#f-serv').value), id = $('#f-id').value || 'c:' + uid();
-    const f = { id, custom: true, name, brand: $('#f-brand').value.trim(), kcal, p: z('#f-p'), c: z('#f-c'), f: z('#f-f'), fi: z('#f-fi'), su: opt('#f-su'), sf: opt('#f-sf'), sa: opt('#f-sa'), grade: $('#f-grade').value, serving: sg > 0 ? { label: '1 portion', g: sg } : null, barcode: $('#f-barcode').value.replace(/\D/g, '') };
-    const isNew = !S.foods[id];
+    const sg = num($('#f-serv').value), isNew = !$('#f-id').value, id = $('#f-id').value || 'c:' + uid(), old = S.foods[id] || BASE_MAP[id] || {};
+    const f = { id, custom: true, name, brand: $('#f-brand').value.trim(), kcal, p: z('#f-p'), c: z('#f-c'), f: z('#f-f'), fi: z('#f-fi'), su: opt('#f-su'), sf: opt('#f-sf'), sa: opt('#f-sa'), grade: $('#f-grade').value, serving: sg > 0 ? { label: old.serving && old.serving.g === sg ? old.serving.label : '1 portion', g: sg } : null, barcode: $('#f-barcode').value.replace(/\D/g, '') };
+    if (old.fv !== undefined) f.fv = old.fv;
+    if (old.type !== undefined) f.type = old.type;
+    if (old.ai) f.ai = true;
     S.foods[id] = f; save();
     if (isNew) { toast('Saved to My foods 🥔'); sheetAmount(f); } else sheetAdd();
   },
   delFood() {
     const id = $('#f-id').value;
+    if (BASE_MAP[id]) { if (!confirm('Put the original values back for this food?')) return; delete S.foods[id]; save(); return sheetAdd(); }
     if (!confirm('Delete this food from My foods? Days you already logged stay as they are.')) return;
     delete S.foods[id]; delete S.uses[id]; save(); sheetAdd();
   },
   shopTab(el) { shopTab = el.dataset.t; const y = window.scrollY; render(); window.scrollTo(0, y); },
-  item(el) {
-    const i = ITEM_MAP[el.dataset.id];
-    if (i.gift && !S.owned.includes(i.id)) return toast('The Christmas tree arrives as a gift on 1 December 🎁');
-    if (!S.owned.includes(i.id)) {
-      if (S.coins < i.price) return toast(`You need ${i.price - S.coins} more ${COIN} for the ${i.name}`);
-      if (!confirm(`Buy ${i.name} for ${i.price} coins?`)) return;
-      S.coins -= i.price; S.owned.push(i.id); toast(`${i.name} is yours! ✨`);
-      if (i.cat === 'garden') S.garden.push(i.id); else S.equipped[i.cat] = i.id;
-    } else if (i.cat === 'garden') {
-      S.garden = S.garden.includes(i.id) ? S.garden.filter(x => x !== i.id) : S.garden.concat(i.id);
-    } else if (S.equipped[i.cat] === i.id) { if (!FIXED_SLOTS.includes(i.cat)) delete S.equipped[i.cat]; }
+  item(el) { sheetItem(el.dataset.id); },
+  buyItem() {
+    const i = ITEM_MAP[curItem];
+    if (!i || i.gift || S.owned.includes(i.id) || S.coins < i.price) return;
+    S.coins -= i.price; S.owned.push(i.id); toast(`${i.name} is yours! ✨`);
+    if (i.cat === 'garden') S.garden.push(i.id); else S.equipped[i.cat] = i.id;
+    itemChanged();
+  },
+  toggleItem() {
+    const i = ITEM_MAP[curItem];
+    if (!i || !S.owned.includes(i.id)) return;
+    if (i.cat === 'garden') S.garden = S.garden.includes(i.id) ? S.garden.filter(x => x !== i.id) : S.garden.concat(i.id);
+    else if (S.equipped[i.cat] === i.id) { if (!FIXED_SLOTS.includes(i.cat)) delete S.equipped[i.cat]; }
     else S.equipped[i.cat] = i.id;
-    save(); const y = window.scrollY; render(); window.scrollTo(0, y);
+    itemChanged();
+  },
+  tint(el) {
+    if (!S.owned.includes(curItem) || !TINTS[curItem]) return;
+    if (el.dataset.c) S.equipped.tint[curItem] = el.dataset.c; else delete S.equipped.tint[curItem];
+    itemChanged();
   },
   suggest() {
     const g = suggestGoal(readProfile());
@@ -603,7 +650,7 @@ const A = {
   async exportData() {
     const due = backupDue() || !S.lastBackup, prev = S.lastBackup;
     S.lastBackup = today();
-    const name = `spuddy-backup-${today()}.json`, text = JSON.stringify(S);
+    const name = `spuddy-backup-${today()}.json`, text = JSON.stringify(Object.assign({}, S, { aiKey: '' }));
     const done = () => { if (due) S.coins += 5; save(); render(); toast(due ? `Backup saved  +5 ${COIN}` : 'Backup saved ✓'); };
     try {
       const file = new File([text], name, { type: 'application/json' });
@@ -615,7 +662,7 @@ const A = {
   importData() { $('#importFile').click(); },
 };
 
-Object.assign(A, SHARE_ACTIONS, XMAS_ACTIONS);
+Object.assign(A, SHARE_ACTIONS, XMAS_ACTIONS, AI_ACTIONS);
 
 document.addEventListener('click', ev => {
   if (swBlockClick) return;
@@ -636,6 +683,7 @@ document.addEventListener('change', ev => {
       const d = JSON.parse(fr.result);
       if (!d || typeof d.log !== 'object' || typeof d.goal !== 'object') throw 0;
       if (!confirm('Replace everything on this phone with the backup?')) return;
+      if (!d.aiKey) d.aiKey = S.aiKey;
       localStorage.setItem(KEY, JSON.stringify(d)); S = load(); normalize(); applyTheme(); render(); toast('Backup restored ✓');
     } catch (e) { toast("That file doesn't look like a Spuddy backup"); }
   };
