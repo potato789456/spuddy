@@ -24,7 +24,7 @@ function load() {
     goal: { kcal: 1800, p: 110, c: 205, f: 60, fi: 25 },
     foods: {}, uses: {}, log: {}, coins: 0,
     owned: ['sprout', 'meadow', 'picket', 'lawn'], equipped: { hat: 'sprout', bg: 'meadow', fence: 'picket', ground: 'lawn' },
-    rew: {}, ms: [], garden: [], theme: 'light', onboarded: false,
+    rew: {}, ms: [], garden: [], orn: [], theme: 'light', onboarded: false,
   }, s);
 }
 let S = load();
@@ -36,7 +36,9 @@ function normalize() {
   if (!S.equipped.fence) S.equipped.fence = 'picket';
   if (!S.equipped.ground) S.equipped.ground = 'lawn';
   if (!S.share || typeof S.share !== 'object') S.share = {};
-  S.share = Object.assign({ on: false, name: '', friends: [], cache: {} }, S.share);
+  S.share = Object.assign({ on: false, name: '', friends: [], cache: {}, ffoods: {} }, S.share);
+  if (!Array.isArray(S.orn)) S.orn = [];
+  S.advent = Object.assign({ year: null, order: [], got: 0, placed: {} }, S.advent || {});
   if (!(S.goal.fi >= 0)) S.goal.fi = 25;
   Object.values(S.foods).forEach(f => { if (!(f.fi >= 0)) f.fi = 0; });
   Object.values(S.log).forEach(es => es.forEach(e => {
@@ -68,7 +70,7 @@ const MEAL_SHARE = { breakfast: 0.3, lunch: 0.3, dinner: 0.3, snack: 0.1 };
 let scanner = null, scanBusy = false;
 
 /* ---------- data helpers ---------- */
-const getFood = id => S.foods[id] || BASE_MAP[id];
+const getFood = id => S.foods[id] || BASE_MAP[id] || partnerFoods().find(f => f.id === id);
 const dayLog = d => S.log[d] || [];
 const hasLog = d => dayLog(d).length > 0;
 function totals(d) {
@@ -176,7 +178,7 @@ function viewToday() {
     return `<div class="card meal"><div class="row" data-a="openMeal" data-meal="${id}"><div class="grow"><h3>${name} <span class="chev">›</span></h3><div class="muted small">${sum} / ${Math.round(S.goal.kcal * MEAL_SHARE[id])} kcal</div></div><button class="add" data-a="openAdd" data-meal="${id}" aria-label="Add food to ${name}">+</button></div>
     ${es.length ? `<div class="entries">${es.map(e => `<button class="entry" data-a="editEntry" data-id="${e.id}">${esc(e.name)} (${Math.round(e.kcal)} kcal)</button>`).join('')}</div>` : ''}</div>`;
   }).join('');
-  return `<div class="head"><button data-a="tab" data-tab="potato" aria-label="Open potato">${potatoSVG({ hat: S.equipped.hat, glasses: S.equipped.glasses, costume: S.equipped.costume }, mood, 46)}</button>
+  return `<div class="head"><button data-a="tab" data-tab="potato" aria-label="Open potato">${potatoSVG({ hat: S.equipped.hat, hair: S.equipped.hair, glasses: S.equipped.glasses, costume: S.equipped.costume }, mood, 46)}</button>
     <h1 class="grow">Spuddy</h1><span class="pill">🔥 ${st.n}</span><span class="pill">${COIN} ${S.coins}</span></div>
   <div class="card hero ${over ? 'over' : ''}"><div class="summary">
     <div class="ring"><svg width="132" height="132" viewBox="0 0 132 132"><circle class="track" cx="66" cy="66" r="56" fill="none" stroke-width="13"/><circle class="prog" cx="66" cy="66" r="56" fill="none" stroke-width="13" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}"/></svg>
@@ -199,6 +201,7 @@ const FIXED_SLOTS = ['bg', 'fence', 'ground'];   // always exactly one of each
 function shopItem(i) {
   const owned = S.owned.includes(i.id);
   const on = i.cat === 'garden' ? S.garden.includes(i.id) : S.equipped[i.cat] === i.id;
+  if (i.gift && !owned) return `<button class="item locked" data-a="item" data-id="${i.id}">${itemThumb(i, 78)}<div class="nm">${i.name}</div><div class="pr">🎁 Gift on 1 Dec</div></button>`;
   const label = on ? (i.cat === 'garden' ? 'In garden ✓' : FIXED_SLOTS.includes(i.cat) ? 'Using ✓' : i.cat === 'pet' ? 'With you ✓' : 'Wearing ✓') : owned ? 'Owned' : COIN + ' ' + i.price;
   return `<button class="item ${on ? 'on' : ''} ${owned ? 'owned' : 'locked'}" data-a="item" data-id="${i.id}">${itemThumb(i, 78)}<div class="nm">${i.name}</div><div class="pr">${label}</div></button>`;
 }
@@ -209,7 +212,7 @@ function viewPotato() {
     ? CATS.map(([cat, title]) => sect(title, ITEMS.filter(i => i.cat === cat))).join('')
     : GARDEN_SUBS.map(sub => sect(sub, ITEMS.filter(i => i.sub === sub))).join('') + sect('Pets', ITEMS.filter(i => i.cat === 'pet')) + sect('Fences', ITEMS.filter(i => i.cat === 'fence')) + sect('Ground', ITEMS.filter(i => i.cat === 'ground')) + sect('Scenery', ITEMS.filter(i => i.cat === 'bg'));
   return `<div class="head"><h1 class="grow">My garden</h1><span class="pill">🔥 ${st.n}</span><span class="pill">${COIN} ${S.coins}</span></div>
-  <div class="gardenwrap">${gardenSVG(S.equipped, S.garden, hasLog(today()) ? 'happy' : 'sleepy')}<div class="bubble">${potatoSays()}</div></div>
+  <div class="gardenwrap">${gardenSVG(S.equipped, S.garden, hasLog(today()) ? 'happy' : 'sleepy', S.advent.placed)}<div class="bubble">${potatoSays()}</div>${S.owned.includes('xmastree') ? '<button class="btn ghost sm" style="margin-top:10px" data-a="openTree">🎄 Decorate the Christmas tree</button>' : ''}</div>
   <div class="seg shoptabs"><button class="${shopTab === 'clothes' ? 'on' : ''}" data-a="shopTab" data-t="clothes">👕 Clothes</button><button class="${shopTab === 'garden' ? 'on' : ''}" data-a="shopTab" data-t="garden">🌻 Garden</button></div>
   ${shop}
   <div class="card" style="margin-top:18px"><div class="earn"><b>How to earn coins</b>
@@ -331,7 +334,7 @@ function sheetAdd() {
   renderFoodList('');
 }
 function foodRow(f) {
-  return `<div class="row" style="gap:6px"><button class="food grow" data-a="pick" data-id="${esc(f.id)}"><div class="grow"><div class="n">${esc(f.name)}</div><div class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}per 100 g</div></div>${badge(gradeOf(f))}<div class="k">${Math.round(f.kcal)} kcal</div></button>${f.custom ? `<button class="edit" style="margin-bottom:8px" data-a="editFood" data-id="${esc(f.id)}" aria-label="Edit food">✏️</button>` : ''}</div>`;
+  return `<div class="row" style="gap:6px"><button class="food grow" data-a="pick" data-id="${esc(f.id)}"><div class="grow"><div class="n">${esc(f.name)}</div><div class="muted small">${f.brand ? esc(f.brand) + ' · ' : ''}${f.shared ? 'from ' + esc(f.owner) + ' · ' : ''}per 100 g</div></div>${badge(gradeOf(f))}<div class="k">${Math.round(f.kcal)} kcal</div></button>${f.custom ? `<button class="edit" style="margin-bottom:8px" data-a="editFood" data-id="${esc(f.id)}" aria-label="Edit food">✏️</button>` : ''}</div>`;
 }
 function myFoods() {
   const ids = new Set([...Object.keys(S.foods), ...Object.keys(S.uses)]);
@@ -344,8 +347,10 @@ function renderFoodList(q) {
   const base = BASE.filter(f => !mineIds.has(f.id) && match(f));
   let html = '';
   if (mine.length) html += `<div class="listhead">My foods</div>` + mine.map(foodRow).join('');
+  const theirs = partnerFoods().filter(match);
+  if (theirs.length) html += `<div class="listhead">Shared by your partner</div>` + theirs.map(foodRow).join('');
   if (base.length) html += `<div class="listhead">${toks.length ? 'Basic foods' : 'All basic foods'}</div>` + base.map(foodRow).join('');
-  if (!mine.length && !base.length) html = `<div class="card center" style="margin-top:16px"><p style="margin-bottom:12px">Nothing found for “${esc(q)}”.</p><button class="btn sm" data-a="newFood">＋ Add it as a new food</button></div>`;
+  if (!mine.length && !base.length && !theirs.length) html = `<div class="card center" style="margin-top:16px"><p style="margin-bottom:12px">Nothing found for “${esc(q)}”.</p><button class="btn sm" data-a="newFood">＋ Add it as a new food</button></div>`;
   $('#foodlist').innerHTML = html;
 }
 
@@ -433,6 +438,8 @@ async function onCode(code) {
   await stopScanner();
   const mine = Object.values(S.foods).find(f => f.barcode === code);
   if (mine) return sheetAmount(mine);
+  const theirs = partnerFoods().find(f => f.barcode && f.barcode === code);
+  if (theirs) return sheetAmount(theirs);
   const h = $('#scanhint'); if (h) h.textContent = 'Looking up ' + code + '…';
   let found = null;
   try {
@@ -525,7 +532,7 @@ const A = {
   },
   saveEntry() {
     const g = curGrams(); if (!(g > 0)) return toast('Enter an amount first');
-    const f = cur.food, k = g / 100;
+    const f = cur.food.shared ? adoptFood(cur.food) : cur.food, k = g / 100;
     const data = { foodId: f.id, name: f.name + (f.brand ? ' (' + f.brand + ')' : ''), meal: cur.meal, grams: g, kcal: f.kcal * k, p: f.p * k, c: f.c * k, f: f.f * k, fi: (f.fi || 0) * k, gr: gradeOf(f) };
     if (cur.entry) Object.assign(cur.entry, data, { name: cur.entry.name });
     else {
@@ -561,6 +568,7 @@ const A = {
   shopTab(el) { shopTab = el.dataset.t; const y = window.scrollY; render(); window.scrollTo(0, y); },
   item(el) {
     const i = ITEM_MAP[el.dataset.id];
+    if (i.gift && !S.owned.includes(i.id)) return toast('The Christmas tree arrives as a gift on 1 December 🎁');
     if (!S.owned.includes(i.id)) {
       if (S.coins < i.price) return toast(`You need ${i.price - S.coins} more ${COIN} for the ${i.name}`);
       if (!confirm(`Buy ${i.name} for ${i.price} coins?`)) return;
@@ -607,7 +615,7 @@ const A = {
   importData() { $('#importFile').click(); },
 };
 
-Object.assign(A, SHARE_ACTIONS);
+Object.assign(A, SHARE_ACTIONS, XMAS_ACTIONS);
 
 document.addEventListener('click', ev => {
   if (swBlockClick) return;
@@ -634,10 +642,10 @@ document.addEventListener('change', ev => {
   fr.readAsText(ev.target.files[0]);
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && S.onboarded && $('#sheet').hidden) { settleRewards(); render(); queueSync(); if (tab === 'friends') fetchFriends(); }
+  if (document.visibilityState === 'visible' && S.onboarded && $('#sheet').hidden) { settleRewards(); render(); queueSync(); fetchFriends(); adventCheck(); }
 });
 
 render();
-if (S.onboarded) { settleRewards(); render(); queueSync(); }
+if (S.onboarded) { settleRewards(); render(); queueSync(); fetchFriends(); adventCheck(); }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });

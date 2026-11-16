@@ -1,6 +1,6 @@
 // Offline support: the app keeps working without a connection.
-const CACHE = 'spuddy-v3';
-const SHELL = ['./', 'index.html', 'styles.css', 'foods.js', 'potato.js', 'share.js', 'app.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'spuddy-v4';
+const SHELL = ['./', 'index.html', 'styles.css', 'foods.js', 'potato.js', 'xmas.js', 'share.js', 'app.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

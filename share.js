@@ -6,7 +6,7 @@
 const FB = { key: 'AIzaSyD6yh9yVqPmJwmvjNqoFScYtJFB5hZY84c', project: 'spuddy-9f790' };
 const FS_ROOT = `projects/${FB.project}/databases/(default)/documents`;
 const FS_URL = 'https://firestore.googleapis.com/v1/' + FS_ROOT;
-let idTok = null, idExp = 0, syncT = null, shareBusy = false, shareErr = '';
+let idTok = null, idExp = 0, syncT = null, shareBusy = false, shareErr = '', lastFoodsSent = null;
 
 const persist = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } };
 const fmtCode = c => String(c || '').replace(/^(.{4})(.+)$/, '$1-$2');
@@ -53,7 +53,7 @@ function mySummary() {
     const x = totals(d);
     days.push({ d, k: Math.round(x.kcal), p: Math.round(x.p), c: Math.round(x.c), f: Math.round(x.f), fi: Math.round(x.fi), g: mixGrade(dayLog(d)) });
   }
-  return { v: 1, name: S.share.name, streak: streakInfo().n, eq: S.equipped, garden: S.garden, goal: S.goal, days, at: Date.now() };
+  return { v: 1, name: S.share.name, streak: streakInfo().n, eq: S.equipped, garden: S.garden, orn: S.advent.placed, goal: S.goal, days, at: Date.now() };
 }
 async function syncUp() {
   if (!S.share.on || !S.share.uid) return;
@@ -61,6 +61,14 @@ async function syncUp() {
     await fsCall('PATCH', `/profiles/${S.share.uid}`, { fields: { j: { stringValue: JSON.stringify(mySummary()) }, t: { integerValue: String(Date.now()) } } });
     S.share.lastUp = Date.now(); persist();
   } catch (e) { /* offline or similar: the next change tries again */ }
+  // The foods she saved herself, so a partner can use them too.
+  try {
+    const fj = JSON.stringify(Object.values(S.foods).map(f => ({ id: f.id, name: f.name, brand: f.brand || '', kcal: f.kcal, p: f.p, c: f.c, f: f.f, fi: f.fi || 0, su: f.su, sf: f.sf, sa: f.sa, grade: f.grade || '', sg: f.serving ? f.serving.g : 0, barcode: f.barcode || '' })));
+    if (fj !== lastFoodsSent) {
+      await fsCall('PATCH', `/foods/${S.share.uid}`, { fields: { j: { stringValue: fj }, t: { integerValue: String(Date.now()) } } });
+      lastFoodsSent = fj;
+    }
+  } catch (e) { }
 }
 // Called after every save: upload a fresh summary a moment later.
 function queueSync() {
@@ -78,6 +86,14 @@ async function fetchFriends() {
     });
     shareErr = ''; persist();
   } catch (e) { shareErr = shareError(e); }
+  try {
+    const res = await fsCall('POST', ':batchGet', { documents: fr.map(f => `${FS_ROOT}/foods/${f.uid}`) });
+    (Array.isArray(res) ? res : []).forEach(r => {
+      if (!r.found) return;
+      try { const list = JSON.parse(r.found.fields.j.stringValue); if (Array.isArray(list)) S.share.ffoods[r.found.name.split('/').pop()] = list.slice(0, 2000); } catch (e) { }
+    });
+    persist();
+  } catch (e) { }
   if (tab === 'friends') { const y = window.scrollY; render(); window.scrollTo(0, y); }
 }
 async function makeCode() {
@@ -90,6 +106,36 @@ async function makeCode() {
     } catch (e) { if (e.status !== 409 && e.status !== 400) throw e; }
   }
   throw new Error('no free code');
+}
+
+/* ---------- partner's saved foods ---------- */
+const numOr = (v, d) => { const n = Number(v); return isFinite(n) && n >= 0 ? n : d; };
+// Foods my partners saved that I don't have yet, cleaned up and ready to pick.
+function partnerFoods() {
+  if (!S.share || !S.share.on) return [];
+  const mine = Object.values(S.foods), key = f => norm((f.name || '') + '|' + (f.brand || ''));
+  const have = new Set(mine.map(key)), haveSrc = new Set(mine.map(f => f.src).filter(Boolean)), haveBar = new Set(mine.map(f => f.barcode).filter(Boolean));
+  const out = [];
+  S.share.friends.forEach(fr => {
+    const owner = (S.share.cache[fr.uid] && S.share.cache[fr.uid].name) || 'partner';
+    (S.share.ffoods[fr.uid] || []).forEach(x => {
+      if (!x || typeof x.name !== 'string' || !x.name.trim()) return;
+      const id = 'p:' + fr.uid + ':' + String(x.id);
+      const f = { id, shared: true, owner: String(owner).slice(0, 20), name: x.name.slice(0, 80), brand: String(x.brand || '').slice(0, 40), kcal: numOr(x.kcal, 0), p: numOr(x.p, 0), c: numOr(x.c, 0), f: numOr(x.f, 0), fi: numOr(x.fi, 0),
+        su: x.su == null ? null : numOr(x.su, null), sf: x.sf == null ? null : numOr(x.sf, null), sa: x.sa == null ? null : numOr(x.sa, null), grade: /^[a-e]$/i.test(x.grade || '') ? x.grade : '',
+        serving: numOr(x.sg, 0) > 0 ? { label: '1 portion', g: numOr(x.sg, 0) } : null, barcode: String(x.barcode || '').replace(/\D/g, '') };
+      if (haveSrc.has(id) || have.has(key(f)) || (f.barcode && haveBar.has(f.barcode))) return;
+      out.push(f);
+    });
+  });
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+// Using a partner's food copies it into my own foods.
+function adoptFood(pf) {
+  const f = Object.assign({}, pf, { id: 'c:' + uid(), custom: true, src: pf.id });
+  delete f.shared; delete f.owner;
+  S.foods[f.id] = f;
+  return f;
 }
 
 /* ---------- screen ---------- */
@@ -107,7 +153,7 @@ function friendCard(f) {
   if (!c) return `<div class="card"><div class="row"><b class="grow">Code ${esc(fmtCode(f.code))}</b>${del}</div><p class="muted small" style="margin-top:6px">Nothing shared yet. Ask them to open Spuddy and turn sharing on.</p></div>`;
   const n = v => Math.round(Number(v) || 0), g = x => /^[A-E]$/.test(x || '') ? x : null;
   const goal = c.goal || {}, t = today(), days = Array.isArray(c.days) ? c.days : [], td = days.find(d => d.d === t);
-  const eq = {}; ['hat', 'glasses', 'neck', 'outfit', 'hand', 'bg', 'costume', 'pet', 'fence', 'ground'].forEach(k => { const i = ITEM_MAP[c.eq && c.eq[k]]; if (i && i.cat === k) eq[k] = i.id; });
+  const eq = {}; ['hat', 'hair', 'glasses', 'neck', 'outfit', 'shoes', 'hand', 'bg', 'costume', 'pet', 'fence', 'ground'].forEach(k => { const i = ITEM_MAP[c.eq && c.eq[k]]; if (i && i.cat === k) eq[k] = i.id; });
   const garden = (Array.isArray(c.garden) ? c.garden : []).filter(id => ITEM_MAP[id]);
   const col = k => { const over = n(k) - n(goal.kcal); return over <= 0 ? 'g' : over <= 100 ? 'o' : 'r'; };
   let week = '';
@@ -118,7 +164,7 @@ function friendCard(f) {
   const pct = td && n(goal.kcal) ? Math.min(100, n(td.k) / n(goal.kcal) * 100) : 0;
   return `<div class="card friend"><div class="row"><h3 class="grow">${esc(c.name || 'Friend')}</h3><span class="pill">🔥 ${n(c.streak)}</span>${del}</div>
   <div class="muted small">Updated ${agoText(Number(c.at))}</div>
-  <div class="fgarden">${gardenSVG(eq, garden, td ? 'happy' : 'sleepy')}</div>
+  <div class="fgarden">${gardenSVG(eq, garden, td ? 'happy' : 'sleepy', c.orn && typeof c.orn === 'object' ? c.orn : {})}</div>
   ${td ? `<div class="row" style="margin-top:12px"><b class="grow">Today: ${n(td.k)} / ${n(goal.kcal)} kcal</b>${badge(g(td.g))}</div>
     <div class="bar" style="margin:8px 0"><i style="width:${pct}%;background:var(--${{ g: 'green', o: 'orange', r: 'red' }[col(td.k)]})"></i></div>
     <div class="muted small">Protein ${n(td.p)}/${n(goal.p)} · Carbs ${n(td.c)}/${n(goal.c)} · Fat ${n(td.f)}/${n(goal.f)} · Fiber ${n(td.fi)}/${n(goal.fi)} g</div>`
@@ -130,8 +176,8 @@ function viewFriends() {
   const err = shareErr ? `<div class="note" style="background:#FDE5E2;color:#B83D31">${esc(shareErr)}</div>` : '';
   if (!sh.on) return `<div class="head"><h1 class="grow">Together</h1></div>${err}
   <div class="card stage">${potatoSVG(S.equipped, 'happy', 130)}<div class="bubble">See each other's progress! Turn sharing on, swap codes, and you each get the other's day on this page.</div></div>
-  <div class="card"><b>What your partner will see</b><p class="muted small" style="margin:6px 0 10px">Your daily calories and macros against your goal, the food-quality dot, your streak, and your potato with its garden — for the last 7 days.</p>
-    <b>What stays on your phone</b><p class="muted small" style="margin:6px 0 14px">The foods you eat, your weight, height and age.</p>
+  <div class="card"><b>What your partner will see</b><p class="muted small" style="margin:6px 0 10px">Your daily calories and macros against your goal, the food-quality dot, your streak, and your potato with its garden — for the last 7 days. Also the list of foods you saved yourself, so you can build one food list together.</p>
+    <b>What stays on your phone</b><p class="muted small" style="margin:6px 0 14px">What you ate and when, your weight, height and age.</p>
     <label class="f"><span>Your name (shown to your partner)</span><input class="inp" id="sh-name" maxlength="20" value="${esc(sh.name || '')}"></label>
     <button class="btn" data-a="shareOn">${shareBusy ? 'Connecting…' : 'Turn on sharing'}</button></div>`;
   return `<div class="head"><h1 class="grow">Together</h1><button class="pill" data-a="refreshFriends">↻ Refresh</button></div>${err}
@@ -162,6 +208,7 @@ const SHARE_ACTIONS = {
   async shareOff() {
     if (!confirm('Stop sharing? Your partner will no longer see your progress. Your code stays the same if you turn it on again.')) return;
     try { await fsCall('DELETE', `/profiles/${S.share.uid}`); } catch (e) { }
+    try { await fsCall('DELETE', `/foods/${S.share.uid}`); lastFoodsSent = null; } catch (e) { }
     S.share.on = false; persist(); render();
   },
   async copyCode() {

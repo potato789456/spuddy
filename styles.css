@@ -294,3 +294,14 @@ button.pill { font-size: 14px; }
 
 /* Shop extras */
 .listhead .hint { text-transform: none; letter-spacing: 0; font-weight: 600; }
+
+/* The potato no longer bobs; its arms move instead (animation is inside the drawing). */
+.garden .bob, .stage .potato { animation: none; }
+
+/* Christmas tree */
+#treesvg { display: block; width: 100%; max-height: 52dvh; touch-action: none; -webkit-user-select: none; user-select: none; background: var(--card); border-radius: 20px; }
+#treesvg .orn { cursor: grab; }
+.tray { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; min-height: 54px; }
+.tray button { background: var(--card); border-radius: 14px; padding: 4px; line-height: 0; }
+.newornaments { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.newornaments div { display: flex; flex-direction: column; align-items: center; font-size: 14px; }
