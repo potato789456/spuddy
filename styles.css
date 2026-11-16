@@ -250,3 +250,30 @@ label.f > span { display: block; font-size: 13px; font-weight: 700; color: var(-
 .cbar.g { background: var(--green); } .cbar.o { background: var(--orange); } .cbar.r { background: var(--red); }
 .cd em .qd { width: 9px; height: 9px; }
 .legend .cbar { margin-right: 4px; }
+
+/* Swipe to remove + undo */
+.entry, .mfood { touch-action: pan-y; }
+.swdel { color: var(--red) !important; }
+.swdel .n, .swdel .d, .swdel .d span { color: var(--red) !important; }
+.undo { margin-left: 10px; padding: 5px 12px; border-radius: 99px; background: var(--green); color: #fff; font-weight: 800; font-size: 14px; }
+
+/* Dark mode */
+html[data-theme="dark"] { --bg: #1C1612; --card: #2A221C; --ink: #F4EADD; --muted: #A99A8B; --line: #3E342B; color-scheme: dark; }
+html[data-theme="dark"], html[data-theme="dark"] body { background: var(--bg); }
+html[data-theme="dark"] .card, html[data-theme="dark"] .pill, html[data-theme="dark"] .item, html[data-theme="dark"] .garden { box-shadow: none; }
+html[data-theme="dark"] #tabs { background: rgba(28, 22, 18, .92); }
+html[data-theme="dark"] #tabs button.on, html[data-theme="dark"] .btn.ghost, html[data-theme="dark"] .chip, html[data-theme="dark"] .cd.sel { background: #4A3B2C; }
+html[data-theme="dark"] .chip.on { background: var(--green); }
+html[data-theme="dark"] .btn.danger { background: #4A2622; color: #FF9A8F; }
+html[data-theme="dark"] .inp { background: #231C17; }
+html[data-theme="dark"] .seg button.on { background: #5A4938; }
+html[data-theme="dark"] .note, html[data-theme="dark"] .bubble { background: #3A2E22; }
+html[data-theme="dark"] .macrosum.ok { background: #22381F; color: #9BDB8E; }
+html[data-theme="dark"] .macrosum.bad { background: #4A2622; color: #FF9A8F; }
+html[data-theme="dark"] .entry { color: #B5A595; }
+html[data-theme="dark"] #sheet.mealsheet { background: var(--bg); }
+html[data-theme="dark"] #backdrop { background: rgba(0, 0, 0, .6); }
+html[data-theme="dark"] #toast, html[data-theme="dark"] .donebtn { background: #F4EADD; color: #2A221C; }
+html[data-theme="dark"] .item .pr { color: #E0B070; }
+html[data-theme="dark"] .item.owned .pr { color: #8FD47F; }
+html[data-theme="dark"] .hero { background: linear-gradient(155deg, #9A6A3A, #70491F); box-shadow: none; }

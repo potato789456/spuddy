@@ -24,7 +24,7 @@ function load() {
     goal: { kcal: 1800, p: 110, c: 205, f: 60, fi: 25 },
     foods: {}, uses: {}, log: {}, coins: 0,
     owned: ['sprout', 'meadow'], equipped: { hat: 'sprout', bg: 'meadow' },
-    rew: {}, ms: [], garden: [], onboarded: false,
+    rew: {}, ms: [], garden: [], theme: 'light', onboarded: false,
   }, s);
 }
 let S = load();
@@ -41,6 +41,15 @@ function normalize() {
     e.fi = f ? f.fi * e.grams / 100 : 0;
   }));
 }
+// Light / dark / follow the phone.
+const darkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function applyTheme() {
+  const dark = S.theme === 'dark' || (S.theme === 'auto' && darkQuery && darkQuery.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const meta = document.querySelector('meta[name="theme-color"]'); if (meta) meta.content = dark ? '#1C1612' : '#FFF6E9';
+}
+if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
+applyTheme();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage is full'); } };
 
 let tab = S.onboarded ? 'today' : 'me';
@@ -129,9 +138,9 @@ function settleRewards() {
 
 /* ---------- toast ---------- */
 let toastT;
-function toast(msg) {
+function toast(msg, ms) {
   const el = $('#toast'); el.innerHTML = msg; el.hidden = false;
-  clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, 2800);
+  clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, ms || 2800);
 }
 
 /* ---------- views ---------- */
@@ -224,6 +233,7 @@ function viewMe() {
     <label class="f"><span>Activity</span><select class="inp" id="p-activity">${opt(1.2, p.activity, 'Mostly sitting')}${opt(1.375, p.activity, 'Light (1–3 workouts a week)')}${opt(1.55, p.activity, 'Moderate (3–5 workouts a week)')}${opt(1.725, p.activity, 'Very active (6–7 workouts a week)')}</select></label>
     <label class="f"><span>Pace</span><select class="inp" id="p-pace">${opt(0, p.pace, 'Maintain weight')}${opt(0.25, p.pace, 'Gentle: about −0.25 kg a week')}${opt(0.5, p.pace, 'Steady: about −0.5 kg a week')}</select></label>
     <button class="btn ghost sm" data-a="suggest">✨ Suggest my goal</button></div>
+  ${S.onboarded ? `<div class="card"><b>Appearance</b><div class="seg" style="margin-top:10px">${[['light', 'Light'], ['dark', 'Dark'], ['auto', 'Same as phone']].map(([k, l]) => `<button class="${S.theme === k ? 'on' : ''}" data-a="theme" data-t="${k}">${l}</button>`).join('')}</div></div>` : ''}
   ${S.onboarded ? `<div class="card"><b>Backup</b><p class="muted small" style="margin:6px 0 12px">Everything lives on this phone only. A backup file holds all your foods, every logged day and your potato with its clothes and garden. Save it to Files / iCloud Drive about once a week.</p>
     <p class="small" style="margin-bottom:12px"><b>Last backup:</b> ${S.lastBackup ? niceDate(S.lastBackup) : 'never'}</p>
     <div class="btns"><button class="btn ghost sm" data-a="exportData">Save backup</button><button class="btn ghost sm" data-a="importData">Restore</button></div>
@@ -433,6 +443,47 @@ async function onCode(code) {
   else sheetFood({ barcode: code }, "🥔 I don't know this one yet. Fill it in once from the label and I'll remember it forever.");
 }
 
+/* ---------- swipe a logged food left to remove it from the meal ---------- */
+let undo = null, sw = null, swBlockClick = false;
+function refreshMealSheet() {
+  if (backToMeal && !$('#sheet').hidden && $('#sheet').classList.contains('mealsheet')) { sheetMeal(backToMeal); $('#sheet').style.animation = 'none'; }
+}
+function removeEntry(id) {
+  const list = dayLog(day), i = list.findIndex(e => e.id === id);
+  if (i < 0) return;
+  undo = { day, i, e: list[i] };
+  list.splice(i, 1);
+  if (!list.length) delete S.log[day];
+  save(); render(); refreshMealSheet();
+  toast(`Removed ${esc(undo.e.name)} <button class="undo" data-a="undoDel">Undo</button>`, 5000);
+}
+document.addEventListener('touchstart', ev => {
+  const el = ev.target.closest('[data-a="editEntry"]');
+  sw = el && ev.touches.length === 1 ? { el, x: ev.touches[0].clientX, y: ev.touches[0].clientY, dx: 0, on: false } : null;
+}, { passive: true });
+document.addEventListener('touchmove', ev => {
+  if (!sw) return;
+  const dx = ev.touches[0].clientX - sw.x, dy = ev.touches[0].clientY - sw.y;
+  if (!sw.on) {
+    if (Math.abs(dy) > 12 && Math.abs(dy) >= Math.abs(dx)) { sw = null; return; }
+    if (dx < -12 && Math.abs(dx) > Math.abs(dy) * 1.5) sw.on = true; else return;
+  }
+  sw.dx = Math.min(0, dx);
+  sw.el.style.transition = 'none'; sw.el.style.transform = `translateX(${sw.dx}px)`;
+  sw.el.classList.toggle('swdel', sw.dx < -90);
+}, { passive: true });
+function swipeEnd(cancel) {
+  const w = sw; sw = null;
+  if (!w || !w.on) return;
+  swBlockClick = true; setTimeout(() => swBlockClick = false, 400);
+  if (!cancel && w.dx < -90) {
+    w.el.style.transition = 'transform .15s, opacity .15s'; w.el.style.transform = 'translateX(-110%)'; w.el.style.opacity = '0';
+    setTimeout(() => removeEntry(w.el.dataset.id), 150);
+  } else { w.el.style.transition = 'transform .15s'; w.el.style.transform = ''; w.el.classList.remove('swdel'); }
+}
+document.addEventListener('touchend', () => swipeEnd(false));
+document.addEventListener('touchcancel', () => swipeEnd(true));
+
 /* ---------- actions ---------- */
 const A = {
   tab(el) { tab = el.dataset.tab; render(); window.scrollTo(0, 0); },
@@ -442,6 +493,13 @@ const A = {
     backToMeal = null; closeSheet();
   },
   openMeal(el) { sheetMeal(el.dataset.meal); },
+  theme(el) { S.theme = el.dataset.t; save(); applyTheme(); const y = window.scrollY; render(); window.scrollTo(0, y); },
+  undoDel() {
+    if (!undo) return;
+    const list = S.log[undo.day] || (S.log[undo.day] = []);
+    list.splice(Math.min(undo.i, list.length), 0, undo.e); undo = null;
+    save(); render(); refreshMealSheet(); $('#toast').hidden = true;
+  },
   openCal() { calMonth = day.slice(0, 7); sheetCal(); },
   calNav(el) { const [y, m] = calMonth.split('-').map(Number); calMonth = dstr(new Date(y, m - 1 + (+el.dataset.d), 1)).slice(0, 7); sheetCal(); $('#sheet').style.animation = 'none'; },
   pickDay(el) { day = el.dataset.d; closeSheet(); render(); window.scrollTo(0, 0); },
@@ -544,6 +602,7 @@ const A = {
 };
 
 document.addEventListener('click', ev => {
+  if (swBlockClick) return;
   const el = ev.target.closest('[data-a]'); if (!el) return;
   const fn = A[el.dataset.a]; if (fn) fn(el, ev);
 });
@@ -561,7 +620,7 @@ document.addEventListener('change', ev => {
       const d = JSON.parse(fr.result);
       if (!d || typeof d.log !== 'object' || typeof d.goal !== 'object') throw 0;
       if (!confirm('Replace everything on this phone with the backup?')) return;
-      localStorage.setItem(KEY, JSON.stringify(d)); S = load(); normalize(); render(); toast('Backup restored ✓');
+      localStorage.setItem(KEY, JSON.stringify(d)); S = load(); normalize(); applyTheme(); render(); toast('Backup restored ✓');
     } catch (e) { toast("That file doesn't look like a Spuddy backup"); }
   };
   fr.readAsText(ev.target.files[0]);
