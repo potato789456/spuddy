@@ -277,3 +277,17 @@ html[data-theme="dark"] #toast, html[data-theme="dark"] .donebtn { background: #
 html[data-theme="dark"] .item .pr { color: #E0B070; }
 html[data-theme="dark"] .item.owned .pr { color: #8FD47F; }
 html[data-theme="dark"] .hero { background: linear-gradient(155deg, #9A6A3A, #70491F); box-shadow: none; }
+
+/* Together tab */
+#tabs button { font-size: 11px; }
+.mycode { font-size: 30px; font-weight: 800; letter-spacing: .08em; text-align: center; margin: 10px 0 6px; -webkit-user-select: text; user-select: text; }
+.friend h3 { font-size: 20px; font-weight: 800; }
+.fgarden { max-width: 250px; margin: 12px auto 0; }
+.fgarden .garden { border-radius: 20px; }
+.wk7 { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-top: 14px; text-align: center; }
+.wk7 > div { background: var(--bg); border-radius: 10px; padding: 6px 0; border: 2px solid transparent; }
+.wk7 > div.now { border-color: var(--potato); }
+.wk7 span { display: block; font-size: 11px; color: var(--muted); font-weight: 700; }
+.wk7 em { display: flex; align-items: center; justify-content: center; gap: 3px; height: 14px; margin-top: 3px; }
+.wk7 .qd { width: 9px; height: 9px; }
+button.pill { font-size: 14px; }

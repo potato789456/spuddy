@@ -1,6 +1,6 @@
 // Offline support: the app keeps working without a connection.
-const CACHE = 'spuddy-v2';
-const SHELL = ['./', 'index.html', 'styles.css', 'foods.js', 'potato.js', 'app.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'spuddy-v3';
+const SHELL = ['./', 'index.html', 'styles.css', 'foods.js', 'potato.js', 'share.js', 'app.js', 'manifest.webmanifest', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -10,7 +10,8 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.hostname.includes('openfoodfacts')) return;
+  // Only our own files and the scanner library are cached; everything else (food lookup, sharing) goes straight to the network.
+  if (e.request.method !== 'GET' || (url.origin !== location.origin && url.hostname !== 'unpkg.com')) return;
   e.respondWith(caches.open(CACHE).then(async cache => {
     const hit = await cache.match(e.request, { ignoreSearch: url.origin === location.origin });
     // 'no-cache' = always check with the server, so all files update together.

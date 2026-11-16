@@ -32,6 +32,8 @@ normalize();
 // Fill in anything an older save or backup doesn't have yet (garden list, fiber).
 function normalize() {
   if (!Array.isArray(S.garden)) S.garden = [];
+  if (!S.share || typeof S.share !== 'object') S.share = {};
+  S.share = Object.assign({ on: false, name: '', friends: [], cache: {} }, S.share);
   if (!(S.goal.fi >= 0)) S.goal.fi = 25;
   Object.values(S.foods).forEach(f => { if (!(f.fi >= 0)) f.fi = 0; });
   Object.values(S.log).forEach(es => es.forEach(e => {
@@ -50,7 +52,7 @@ function applyTheme() {
 }
 if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
 applyTheme();
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage is full'); } };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage is full'); } queueSync(); };
 
 let tab = S.onboarded ? 'today' : 'me';
 let day = today();
@@ -153,7 +155,7 @@ function niceDate(d) {
 function render() {
   document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
   $('#tabs').hidden = !S.onboarded;
-  $('#view').innerHTML = tab === 'today' ? viewToday() : tab === 'potato' ? viewPotato() : viewMe();
+  $('#view').innerHTML = tab === 'today' ? viewToday() : tab === 'potato' ? viewPotato() : tab === 'friends' ? viewFriends() : viewMe();
   updMacroSum();
 }
 function macroBar(label, val, goal) {
@@ -486,7 +488,7 @@ document.addEventListener('touchcancel', () => swipeEnd(true));
 
 /* ---------- actions ---------- */
 const A = {
-  tab(el) { tab = el.dataset.tab; render(); window.scrollTo(0, 0); },
+  tab(el) { tab = el.dataset.tab; render(); window.scrollTo(0, 0); if (tab === 'friends') fetchFriends(); },
   day(el) { const d = addDays(day, +el.dataset.d); if (d <= today()) { day = d; render(); } },
   closeSheet() {
     if (backToMeal && !$('#sheet').classList.contains('mealsheet')) { stopScanner(); return sheetMeal(backToMeal); }
@@ -601,6 +603,8 @@ const A = {
   importData() { $('#importFile').click(); },
 };
 
+Object.assign(A, SHARE_ACTIONS);
+
 document.addEventListener('click', ev => {
   if (swBlockClick) return;
   const el = ev.target.closest('[data-a]'); if (!el) return;
@@ -626,10 +630,10 @@ document.addEventListener('change', ev => {
   fr.readAsText(ev.target.files[0]);
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && S.onboarded && $('#sheet').hidden) { settleRewards(); render(); }
+  if (document.visibilityState === 'visible' && S.onboarded && $('#sheet').hidden) { settleRewards(); render(); queueSync(); if (tab === 'friends') fetchFriends(); }
 });
 
 render();
-if (S.onboarded) { settleRewards(); render(); }
+if (S.onboarded) { settleRewards(); render(); queueSync(); }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
