@@ -24,7 +24,36 @@ Split the description into separate foods. For each food give:
 - the nutrition values per 100 g of the food as eaten (cooked weight if they said cooked), taken from standard food composition tables. Calories should agree with the macros (4 kcal per gram of protein and carbs, 9 per gram of fat).
 
 In "note", write one short sentence in English naming any assumption you made, such as the portion size or the cooking method. Leave it empty if you assumed nothing.
-If the message is not about food or drink, return an empty items list and say so in "note".`;
+If the message is not about food or drink, return an empty items list and say so in "note".
+
+The user may send a photo, with or without text.
+- A nutrition label or the back of a pack: copy the per-100 g values exactly as printed and use the product name from the pack in its original language. For grams, use the amount the user says they ate; if they say nothing, use one portion if the label states one, otherwise 100.
+- A plate or a meal: name each food you can see and estimate its weight from the picture, using the plate and cutlery for scale. Say in "note" that the amounts are estimated from the photo.`;
+
+let aiImg = null;   // photo to send along, as base64 JPEG
+// Shrinks a photo so it uploads quickly; 1280 px is plenty to read a label.
+function aiShrink(file) {
+  return new Promise((ok, fail) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1280 / Math.max(img.width, img.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url); ok(cv.toDataURL('image/jpeg', 0.82).split(',')[1]);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); fail(new Error('photo')); };
+    img.src = url;
+  });
+}
+function aiPhotoBox() {
+  const box = $('#ai-photobox'); if (!box) return;
+  box.innerHTML = aiImg ? `<div class="aiphoto"><img src="data:image/jpeg;base64,${aiImg}" alt="Your photo"><button class="x" data-a="aiNoPhoto" aria-label="Remove photo">✕</button></div>` : '<button class="btn ghost sm" data-a="aiPhoto">📷 Add a photo of the food or the label</button>';
+}
+document.addEventListener('change', async ev => {
+  if (ev.target.id !== 'ai-photo' || !ev.target.files[0]) return;
+  try { aiImg = await aiShrink(ev.target.files[0]); } catch (e) { aiImg = null; toast('That photo could not be opened'); }
+  ev.target.value = ''; aiPhotoBox();
+});
 
 let aiRes = null, aiBusy = false;
 
@@ -43,7 +72,8 @@ const AI_JSON_RULE = `
 Answer with JSON only, no other text, in exactly this shape:
 {"items":[{"name":"","grams":0,"kcal_per_100g":0,"protein_per_100g":0,"carbs_per_100g":0,"fat_per_100g":0,"fiber_per_100g":0,"sugars_per_100g":0,"saturated_fat_per_100g":0,"salt_per_100g":0}],"note":""}`;
 
-async function aiEstimate(text) {
+async function aiEstimate(text, image) {
+  const input = image ? [{ type: 'text', text: text || 'This is a photo of what I ate, or of its nutrition label.' }, { type: 'image', data: image, mime_type: 'image/jpeg' }] : text;
   let last = null;
   for (const model of AI_MODELS) {
     for (const fmt of AI_FORMATS) {
@@ -52,7 +82,7 @@ async function aiEstimate(text) {
         res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-goog-api-key': S.aiKey },
-          body: JSON.stringify(Object.assign({ model, input: text, system_instruction: AI_SYSTEM + AI_JSON_RULE, store: false }, fmt)),
+          body: JSON.stringify(Object.assign({ model, input, system_instruction: AI_SYSTEM + AI_JSON_RULE, store: false }, fmt)),
         });
       } catch (e) { throw new Error('No connection. The AI helper needs internet.'); }
       let data = null;
@@ -87,7 +117,7 @@ function aiRead(data) {
 }
 
 function sheetAI() {
-  aiRes = null;
+  aiRes = null; aiImg = null;
   if (!S.aiKey) {
     return openSheet(`${shHead('✨ Ask the AI')}<div class="sh-body">
     <div class="note">Tell the AI what you ate in your own words, for example “75 g cooked beef shoulder”, and it works out the calories and macros and logs them.<br><br>It needs a free key from Google first. That takes a few minutes, once.</div>
@@ -95,8 +125,10 @@ function sheetAI() {
   }
   openSheet(`${shHead('✨ Ask the AI')}<div class="sh-body">
   <label class="f"><span>What did you eat?</span><textarea class="inp" id="ai-q" rows="3" placeholder="e.g. 75 g cooked beef shoulder"></textarea></label>
+  <input type="file" id="ai-photo" accept="image/*" hidden><div id="ai-photobox" style="margin-bottom:10px"></div>
   <button class="btn" data-a="aiAsk">Work it out</button>
   <div id="ai-out" style="margin-top:14px"></div></div>`);
+  aiPhotoBox();
 }
 
 function renderAI() {
@@ -115,14 +147,16 @@ function renderAI() {
 
 const AI_ACTIONS = {
   openAI() { sheetAI(); },
+  aiPhoto() { $('#ai-photo').click(); },
+  aiNoPhoto() { aiImg = null; aiPhotoBox(); },
   aiSetup() { backToMeal = null; closeSheet(); tab = 'me'; render(); const c = $('#ai-card'); if (c) c.scrollIntoView(); },
   async aiAsk() {
     const q = $('#ai-q').value.trim();
-    if (!q) return toast('Write what you ate first');
+    if (!q && !aiImg) return toast('Write what you ate or add a photo first');
     if (aiBusy) return;
     aiBusy = true; aiRes = null;
     $('#ai-out').innerHTML = '<p class="center muted">Thinking… 🥔</p>';
-    try { aiRes = await aiEstimate(q); renderAI(); }
+    try { aiRes = await aiEstimate(q, aiImg); renderAI(); }
     catch (e) { const out = $('#ai-out'); if (out) out.innerHTML = `<div class="note">${esc(e.message)}</div>`; }
     finally { aiBusy = false; }
   },

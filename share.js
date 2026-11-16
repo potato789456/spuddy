@@ -60,7 +60,10 @@ function mySummary() {
     if (!hasLog(d)) continue;
     meals.push({ d, es: dayLog(d).slice(0, 60).map(e => { const q = 100 / (e.grams || 100), r = v => Math.round((v || 0) * q * 10) / 10; return { m: e.meal, n: e.name, g: r1(e.grams), k: r(e.kcal), p: r(e.p), c: r(e.c), f: r(e.f), fi: r(e.fi), gr: entryGrade(e) || '' }; }) });
   }
-  return { v: 1, name: S.share.name, streak: streakInfo().n, eq: S.equipped, garden: S.garden, orn: S.advent.placed, goal: S.goal, days, meals, at: Date.now() };
+  const sum = { v: 1, name: S.share.name, streak: streakInfo().n, eq: S.equipped, garden: S.garden, orn: S.advent.placed, goal: S.goal, days, meals, at: Date.now() };
+  // The profile document has a size limit: drop yesterday's meals, then today's, rather than fail to send.
+  while (sum.meals.length && JSON.stringify(sum).length > 18000) sum.meals.pop();
+  return sum;
 }
 async function syncUp() {
   if (!S.share.on || !S.share.uid) return;
@@ -70,7 +73,8 @@ async function syncUp() {
   } catch (e) { /* offline or similar: the next change tries again */ }
   // The foods she saved herself, so a partner can use them too.
   try {
-    const fj = JSON.stringify(Object.values(S.foods).map(f => ({ id: f.id, name: f.name, brand: f.brand || '', kcal: f.kcal, p: f.p, c: f.c, f: f.f, fi: f.fi || 0, su: f.su, sf: f.sf, sa: f.sa, grade: f.grade || '', sg: f.serving ? f.serving.g : 0, barcode: f.barcode || '' })));
+    const fj = JSON.stringify({ foods: Object.values(S.foods).map(f => ({ id: f.id, name: f.name, brand: f.brand || '', kcal: f.kcal, p: f.p, c: f.c, f: f.f, fi: f.fi || 0, su: f.su, sf: f.sf, sa: f.sa, grade: f.grade || '', sg: f.serving ? f.serving.g : 0, barcode: f.barcode || '' })),
+      recipes: Object.values(S.recipes || {}).slice(0, 30).map(r => ({ n: r.name, es: r.items.slice(0, 40).map(e => ({ n: e.n, g: e.g, k: e.k, p: e.p, c: e.c, f: e.f, fi: e.fi, gr: e.gr || '' })) })) });
     if (fj !== lastFoodsSent) {
       await fsCall('PATCH', `/foods/${S.share.uid}`, { fields: { j: { stringValue: fj }, t: { integerValue: String(Date.now()) } } });
       lastFoodsSent = fj;
@@ -97,7 +101,11 @@ async function fetchFriends() {
     const res = await fsCall('POST', ':batchGet', { documents: fr.map(f => `${FS_ROOT}/foods/${f.uid}`) });
     (Array.isArray(res) ? res : []).forEach(r => {
       if (!r.found) return;
-      try { const list = JSON.parse(r.found.fields.j.stringValue); if (Array.isArray(list)) S.share.ffoods[r.found.name.split('/').pop()] = list.slice(0, 2000); } catch (e) { }
+      try {
+        const got = JSON.parse(r.found.fields.j.stringValue), id = r.found.name.split('/').pop(), list = Array.isArray(got) ? got : got && got.foods;
+        if (Array.isArray(list)) S.share.ffoods[id] = list.slice(0, 2000);
+        S.share.frecipes[id] = got && Array.isArray(got.recipes) ? got.recipes.slice(0, 30) : [];
+      } catch (e) { }
     });
     persist();
   } catch (e) { }
@@ -177,13 +185,20 @@ let cp = null;
 function sheetCopy(uid, d, meal) {
   const c = S.share.cache[uid], m = friendMeals(c).find(x => x.d === d && x.meal === meal);
   if (!m) return;
-  cp = { items: m.es, dest: meal };
-  openSheet(`${shHead('Copy ' + esc(String(c.name || 'their').slice(0, 20)) + (c.name ? '’s ' : ' ') + m.label.toLowerCase())}<div class="sh-body">
-  <p class="muted small" style="margin-bottom:6px">Change the grams to what you are having. Put 0 to leave a food out.</p>
-  ${m.es.map((e, i) => `<div class="cprow"><div class="grow"><div class="n">${badge(e.gr)}${esc(e.n)}</div><div class="muted small" id="cp-k${i}"></div></div><input class="inp cp-g" data-i="${i}" inputmode="decimal" value="${e.g}" aria-label="Grams"><span class="muted">g</span></div>`).join('')}
+  openCopy({ title: 'Copy ' + String(c.name || 'their').slice(0, 20) + (c.name ? '’s ' : ' ') + m.label.toLowerCase(), items: m.es, dest: meal, day: today() });
+}
+// One screen for every "add several foods at once": a partner's meal, my own earlier meal, a saved meal.
+function openCopy(o) {
+  cp = Object.assign({ dest: addMeal, day: today(), recipe: null }, o);
+  cp.base = cp.items.map(e => e.g);
+  openSheet(`${shHead(esc(cp.title))}<div class="sh-body">
+  <p class="muted small" style="margin-bottom:8px">Change the grams to what you are having. Put 0 to leave a food out.</p>
+  <div class="chips" style="margin-bottom:6px">${[[0.5, '½'], [1, '1×'], [1.5, '1½×'], [2, '2×']].map(v => `<button class="chip" data-a="copyMult" data-v="${v[0]}">${v[1]}</button>`).join('')}</div>
+  ${cp.items.map((e, i) => `<div class="cprow"><div class="grow"><div class="n">${badge(e.gr)}${esc(e.n)}</div><div class="muted small" id="cp-k${i}"></div></div><input class="inp cp-g" data-i="${i}" inputmode="decimal" value="${e.g}" aria-label="Grams"><span class="muted">g</span></div>`).join('')}
   <div class="listhead" style="margin-top:14px">Add to my</div>
   <div class="seg" id="cp-dest" style="margin-bottom:14px">${MEALS.map(x => `<button data-a="copyDest" data-m="${x[0]}">${x[1]}</button>`).join('')}</div>
-  <button class="btn" data-a="copyAdd" id="cp-add"></button></div>`);
+  <button class="btn" data-a="copyAdd" id="cp-add"></button>
+  ${cp.recipe ? '<button class="btn danger" style="margin-top:10px" data-a="copyDel">Delete this saved meal</button>' : ''}</div>`);
   updCopy();
 }
 function copyGrams(i) { const el = document.querySelector(`.cp-g[data-i="${i}"]`), g = el ? num(el.value) : 0; return g > 0 ? g : 0; }
@@ -192,18 +207,18 @@ function updCopy() {
   let tot = 0;
   cp.items.forEach((e, i) => { const k = copyGrams(i) / 100; tot += e.k * k; $('#cp-k' + i).textContent = `${Math.round(e.k * k)} kcal · P ${r1(e.p * k)} · C ${r1(e.c * k)} · F ${r1(e.f * k)}`; });
   document.querySelectorAll('#cp-dest button').forEach(b => b.classList.toggle('on', b.dataset.m === cp.dest));
-  $('#cp-add').textContent = `Add to today · ${Math.round(tot)} kcal`;
+  $('#cp-add').textContent = `Add to ${cp.day === today() ? 'today' : niceDate(cp.day).toLowerCase()} · ${Math.round(tot)} kcal`;
 }
 document.addEventListener('input', ev => { if (ev.target.classList && ev.target.classList.contains('cp-g')) updCopy(); });
 function copyAdd() {
   if (!cp) return;
-  const d = today(), mine = Object.values(S.foods);
+  const d = cp.day, mine = Object.values(S.foods);
   let n = 0;
   cp.items.forEach((e, i) => {
     const g = copyGrams(i); if (!g) return;
-    // Link it to a food I already have with the same name; otherwise keep it as one of my foods.
-    const key = norm(e.n);
-    let f = mine.find(x => norm(x.name + (x.brand ? ' (' + x.brand + ')' : '')) === key) || BASE.find(x => norm(x.name) === key);
+    // Link it to the food it came from or one I already have with the same name; otherwise keep it as one of my foods.
+    const key = norm(e.n), own = e.fid && (S.foods[e.fid] || BASE_MAP[e.fid]);
+    let f = own || mine.find(x => norm(x.name + (x.brand ? ' (' + x.brand + ')' : '')) === key) || BASE.find(x => norm(x.name) === key);
     if (!f) { f = { id: 'c:' + uid(), custom: true, name: e.n, brand: '', kcal: e.k, p: e.p, c: e.c, f: e.f, fi: e.fi, su: null, sf: null, sa: null, grade: e.gr || '', serving: null, barcode: '' }; S.foods[f.id] = f; mine.push(f); }
     const k = g / 100;
     (S.log[d] || (S.log[d] = [])).push({ id: uid(), foodId: f.id, name: e.n, meal: cp.dest, grams: g, kcal: e.k * k, p: e.p * k, c: e.c * k, f: e.f * k, fi: e.fi * k, gr: e.gr || gradeOf(f) });
@@ -212,6 +227,7 @@ function copyAdd() {
   if (!n) return toast('Every food is set to 0 g');
   const label = MEALS.find(x => x[0] === cp.dest)[1].toLowerCase();
   cp = null; save(); closeSheet(); settleRewards(); render();
+  if (backToMeal) sheetMeal(backToMeal);
   toast(`Added ${n} ${n === 1 ? 'food' : 'foods'} to your ${label} ✓`);
 }
 
@@ -245,8 +261,8 @@ function viewFriends() {
   const err = shareErr ? `<div class="note" style="background:#FDE5E2;color:#B83D31">${esc(shareErr)}</div>` : '';
   if (!sh.on) return `<div class="head"><h1 class="grow">Together</h1></div>${err}
   <div class="card stage">${potatoSVG(S.equipped, 'happy', 130)}<div class="bubble">See each other's progress! Turn sharing on, swap codes, and you each get the other's day on this page.</div></div>
-  <div class="card"><b>What your partner will see</b><p class="muted small" style="margin:6px 0 10px">Your daily calories and macros against your goal, the food-quality dot, your streak, and your potato with its garden — for the last 7 days. Also the list of foods you saved yourself, so you can build one food list together.</p>
-    <b>What stays on your phone</b><p class="muted small" style="margin:6px 0 14px">What you ate and when, your weight, height and age.</p>
+  <div class="card"><b>What your partner will see</b><p class="muted small" style="margin:6px 0 10px">Your daily calories and macros against your goal, the food-quality dot, your streak, and your potato with its garden — for the last 7 days. Also the foods and meals you saved yourself, and what you ate today and yesterday, so you can copy each other's meals.</p>
+    <b>What stays on your phone</b><p class="muted small" style="margin:6px 0 14px">Older days food by food, your weight, height and age.</p>
     <label class="f"><span>Your name (shown to your partner)</span><input class="inp" id="sh-name" maxlength="20" value="${esc(sh.name || '')}"></label>
     <button class="btn" data-a="shareOn">${shareBusy ? 'Connecting…' : 'Turn on sharing'}</button></div>`;
   return `<div class="head"><h1 class="grow">Together</h1><button class="pill" data-a="refreshFriends">↻ Refresh</button></div>${err}
@@ -263,6 +279,8 @@ const SHARE_ACTIONS = {
   copyMeal(el) { sheetCopy(el.dataset.uid, el.dataset.d, el.dataset.meal); },
   copyDest(el) { if (cp) { cp.dest = el.dataset.m; updCopy(); } },
   copyAdd() { copyAdd(); },
+  copyMult(el) { if (!cp) return; document.querySelectorAll('.cp-g').forEach(inp => { inp.value = r1(cp.base[+inp.dataset.i] * +el.dataset.v); }); updCopy(); },
+  copyDel() { if (!cp || !cp.recipe || !confirm('Delete this saved meal? Days you already logged stay as they are.')) return; delete S.recipes[cp.recipe]; cp = null; save(); sheetAdd(); },
   async shareOn() {
     const name = ($('#sh-name').value || '').trim();
     if (!name) return toast('Type your name first');

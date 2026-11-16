@@ -323,3 +323,20 @@ html[data-theme="dark"] .preview .potato { background: #3A2E22; }
 .cprow .inp { width: 86px; flex: none; text-align: right; padding: 9px 10px; }
 .cpnames { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 56vw; }
 #cp-dest button { font-size: 13px; padding: 10px 2px; }
+
+/* weekly summary */
+.week .wkchart { position: relative; display: flex; gap: 8px; height: 92px; margin: 14px 0 6px; }
+.wkcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wkbar { flex: 1; width: 100%; display: flex; align-items: flex-end; background: var(--line); border-radius: 8px; overflow: hidden; }
+.wkbar i { display: block; width: 100%; border-radius: 8px 8px 0 0; }
+.wkcol span { font-size: 11px; font-weight: 700; color: var(--muted, #9A8B7A); }
+.wkcol.now span { color: var(--ink); }
+.wkgoal { position: absolute; left: 0; right: 0; margin-bottom: 15px; border-top: 2px dashed rgba(59, 42, 26, .35); pointer-events: none; }
+.wkfacts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; text-align: center; }
+.wkfacts b { display: block; font-size: 18px; }
+.wkfacts span { font-size: 12px; opacity: .7; }
+html[data-theme="dark"] .wkgoal { border-top-color: rgba(255, 255, 255, .4); }
+/* AI photo */
+.aiphoto { position: relative; display: inline-block; }
+.aiphoto img { display: block; max-width: 100%; max-height: 180px; border-radius: 14px; }
+.aiphoto .x { position: absolute; top: 6px; right: 6px; }

@@ -37,10 +37,12 @@ function normalize() {
   if (!S.equipped.fence) S.equipped.fence = 'picket';
   if (!S.equipped.ground) S.equipped.ground = 'lawn';
   if (!S.share || typeof S.share !== 'object') S.share = {};
-  S.share = Object.assign({ on: false, name: '', friends: [], cache: {}, ffoods: {} }, S.share);
+  S.share = Object.assign({ on: false, name: '', friends: [], cache: {}, ffoods: {}, frecipes: {} }, S.share);
   if (!Array.isArray(S.orn)) S.orn = [];
   if (!S.equipped.tint || typeof S.equipped.tint !== 'object') S.equipped.tint = {};
   if (typeof S.aiKey !== 'string') S.aiKey = '';
+  if (!S.recipes || typeof S.recipes !== 'object') S.recipes = {};
+  S.cloud = Object.assign({ on: false, key: '', last: 0, err: '' }, S.cloud || {});
   S.advent = Object.assign({ year: null, order: [], got: 0, placed: {} }, S.advent || {});
   if (!(S.goal.fi >= 0)) S.goal.fi = 25;
   Object.values(S.foods).forEach(f => { if (!(f.fi >= 0)) f.fi = 0; });
@@ -60,7 +62,7 @@ function applyTheme() {
 }
 if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener('change', applyTheme);
 applyTheme();
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage is full'); } queueSync(); };
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast('Could not save — storage is full'); } queueSync(); queueCloud(); };
 
 let tab = S.onboarded ? 'today' : 'me';
 let day = today();
@@ -104,7 +106,7 @@ function suggestGoal(p) {
   const kcal = Math.max(1200, Math.round((bmr * num(p.activity) - num(p.pace) * 1100) / 10) * 10);
   return fitMacros(kcal, Math.round(w * 1.8), Math.round(kcal * 0.27 / 9));
 }
-const backupDue = () => S.lastBackup ? S.lastBackup <= addDays(today(), -7) : Object.keys(S.log).length >= 3;
+const backupDue = () => S.cloud.on && !S.cloud.err ? false : S.lastBackup ? S.lastBackup <= addDays(today(), -7) : Object.keys(S.log).length >= 3;
 
 /* ---------- health grade ---------- */
 const isNum = v => typeof v === 'number' && v >= 0;
@@ -190,7 +192,7 @@ function viewToday() {
   </div><div class="macros">${macroBar('Protein', t.p, g.p)}${macroBar('Carbs', t.c, g.c)}${macroBar('Fat', t.f, g.f)}${macroBar('Fiber', t.fi, g.fi)}</div></div>
   <div class="daynav"><button data-a="day" data-d="-1" aria-label="Previous day">‹</button><button class="daybtn" data-a="openCal">${niceDate(day)} <span class="caret">▾</span></button><button data-a="day" data-d="1" aria-label="Next day" ${day >= today() ? 'disabled' : ''}>›</button></div>
   ${backupDue() ? `<div class="card"><b>🥔 Time for a backup</b><p class="muted small" style="margin:6px 0 12px">${S.lastBackup ? 'Your last backup was on ' + niceDate(S.lastBackup) + '.' : "You haven't saved a backup yet."} It keeps your foods, your days and your potato safe.</p><button class="btn sm" data-a="exportData">Save backup  +5 ${COIN}</button></div>` : ''}
-  ${meals}`;
+  ${meals}${day === today() ? weekCard() : ''}`;
 }
 function potatoSays() {
   const st = streakInfo().n;
@@ -282,7 +284,8 @@ function viewMe() {
   ${S.onboarded ? `<div class="card" id="ai-card"><b>✨ AI helper</b><p class="muted small" style="margin:6px 0 12px">Describe a food in your own words and the AI works out its calories and macros. It needs a free Gemini key from aistudio.google.com (no card), which is kept on this phone only. What you type there is sent to Google to get the answer.</p>
     <label class="f"><span>${S.aiKey ? 'Key saved ✓ — paste a new one to replace it' : 'Gemini API key (free)'}</span><input class="inp" id="ai-key" type="password" autocomplete="off" value="${esc(S.aiKey)}" placeholder="Paste the key here"></label>
     <button class="btn ghost sm" data-a="saveKey">Save key</button></div>` : ''}
-  ${S.onboarded ? `<div class="card"><b>Backup</b><p class="muted small" style="margin:6px 0 12px">Everything lives on this phone only. A backup file holds all your foods, every logged day and your potato with its clothes and garden. Save it to Files / iCloud Drive about once a week.</p>
+  ${cloudCard()}
+  ${S.onboarded ? `<div class="card"><b>Backup file</b><p class="muted small" style="margin:6px 0 12px">A backup file holds all your foods, every logged day and your potato with its clothes and garden. Save it to Files / iCloud Drive about once a week.</p>
     <p class="small" style="margin-bottom:12px"><b>Last backup:</b> ${S.lastBackup ? niceDate(S.lastBackup) : 'never'}</p>
     <div class="btns"><button class="btn ghost sm" data-a="exportData">Save backup</button><button class="btn ghost sm" data-a="importData">Restore</button></div>
     <input type="file" id="importFile" accept="application/json,.json" hidden></div>` : ''}`;
@@ -334,11 +337,11 @@ function sheetMeal(id) {
   const budget = Math.round(g.kcal * sh), over = m.kcal > budget * 1.05;
   const C = 2 * Math.PI * 30;
   const ring = (label, val, goal, color) => `<div class="mring"><div class="rw"><svg width="72" height="72" viewBox="0 0 76 76"><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-opacity=".22" stroke-width="7"/><circle cx="38" cy="38" r="30" fill="none" stroke="${color}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - (goal ? Math.min(1, val / goal) : 0))}" transform="rotate(-90 38 38)"/></svg><div class="rm"><b>${Math.round(val)}</b><span>/${Math.round(goal)} g</span></div></div><div class="rl">${label}</div></div>`;
-  openSheet(`<div class="sh-head"><button class="chip" data-a="openAdd" data-meal="${id}">＋ Add more food</button><span class="grow"></span><button class="btn sm donebtn" data-a="closeSheet">Done</button></div>
+  openSheet(`<div class="sh-head"><button class="chip" data-a="openAdd" data-meal="${id}">＋ Add food</button>${prevMeal(id, day) ? `<button class="chip" style="margin-left:8px" data-a="repeatMeal" data-meal="${id}">↺ Last time</button>` : ''}<span class="grow"></span><button class="btn sm donebtn" data-a="closeSheet">Done</button></div>
   <div class="sh-body"><h2 class="mtitle">${name} ${badge(mixGrade(es))}</h2><p class="center muted" style="margin-bottom:8px">${niceDate(day)} · <b style="color:var(--ink)">${Math.round(m.kcal)}</b> / ${budget} kcal</p>
   <div class="bar mbar"><i style="width:${budget ? Math.min(100, m.kcal / budget * 100) : 0}%;background:${over ? 'var(--red)' : 'var(--green)'}"></i></div>
   <div class="mrings">${ring('Protein', m.p, g.p * sh, '#F06A5E')}${ring('Carbs', m.c, g.c * sh, '#FF9F45')}${ring('Fat', m.f, g.f * sh, '#6FA8F5')}${ring('Fiber', m.fi, g.fi * sh, '#6DBE5A')}</div>
-  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${badge(entryGrade(e))}${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('')
+  ${es.length ? es.map(e => `<button class="mfood" data-a="editEntry" data-id="${e.id}"><div class="n">${esc(e.name)}</div><div class="d">${badge(entryGrade(e))}${Math.round(e.kcal)} kcal, ${r1(e.grams)} g <span>· P ${r1(e.p)} · C ${r1(e.c)} · F ${r1(e.f)} · Fiber ${r1(e.fi || 0)}</span></div></button>`).join('') + `<button class="btn ghost sm" style="margin-top:18px" data-a="saveRecipe" data-meal="${id}">⭐ Save as a meal</button>`
       : `<p class="center muted" style="margin-top:26px">Nothing logged for ${name.toLowerCase()} yet.</p>`}</div>`, false, 'meal');
 }
 
@@ -385,11 +388,15 @@ function renderFoodList(q) {
   const mine = myFoods().filter(match), mineIds = new Set(mine.map(f => f.id));
   const base = BASE.filter(f => !mineIds.has(f.id) && match(f));
   let html = '';
+  const rmatch = r => { const hay = norm(r.name + ' ' + r.items.map(e => e.n).join(' ')); return toks.every(t => hay.includes(t)); };
+  const recs = myRecipes().filter(rmatch), precs = partnerRecipes().filter(rmatch);
+  if (recs.length) html += `<div class="listhead">My meals</div>` + recs.map(recipeRow).join('');
+  if (precs.length) html += `<div class="listhead">Meals from your partner</div>` + precs.map(recipeRow).join('');
   if (mine.length) html += `<div class="listhead">My foods</div>` + mine.map(foodRow).join('');
   const theirs = partnerFoods().filter(match);
   if (theirs.length) html += `<div class="listhead">Shared by your partner</div>` + theirs.map(foodRow).join('');
   if (base.length) html += `<div class="listhead">${toks.length ? 'Basic foods' : 'All basic foods'}</div>` + base.map(foodRow).join('');
-  if (!mine.length && !base.length && !theirs.length) html = `<div class="card center" style="margin-top:16px"><p style="margin-bottom:12px">Nothing found for “${esc(q)}”.</p><button class="btn sm" data-a="newFood">＋ Add it as a new food</button></div>`;
+  if (!mine.length && !base.length && !theirs.length && !recs.length && !precs.length) html = `<div class="card center" style="margin-top:16px"><p style="margin-bottom:12px">Nothing found for “${esc(q)}”.</p><button class="btn sm" data-a="newFood">＋ Add it as a new food</button></div>`;
   $('#foodlist').innerHTML = html;
 }
 
@@ -664,7 +671,7 @@ const A = {
   importData() { $('#importFile').click(); },
 };
 
-Object.assign(A, SHARE_ACTIONS, XMAS_ACTIONS, AI_ACTIONS);
+Object.assign(A, SHARE_ACTIONS, XMAS_ACTIONS, AI_ACTIONS, MORE_ACTIONS);
 
 document.addEventListener('click', ev => {
   if (swBlockClick) return;
@@ -696,6 +703,6 @@ document.addEventListener('visibilitychange', () => {
 });
 
 render();
-if (S.onboarded) { settleRewards(); render(); queueSync(); fetchFriends(); adventCheck(); }
+if (S.onboarded) { settleRewards(); render(); queueSync(); fetchFriends(); adventCheck(); queueCloud(); }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => { });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
