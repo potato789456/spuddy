@@ -432,6 +432,7 @@ function sheetFood(f, note) {
   const v = x => (x === undefined || x === null || (typeof x === 'number' && isNaN(x))) ? '' : esc(x);
   openSheet(`${shHead(f.id ? 'Edit food' : 'New food')}
   <div class="sh-body">${note ? `<div class="note">${note}</div>` : ''}
+  <input type="file" id="lb-photo" accept="image/*" hidden><button class="btn ghost sm" data-a="labelPhoto">📷 Fill in from a photo of the label</button><div id="lb-msg" style="margin-bottom:12px"></div>
   <input type="hidden" id="f-id" value="${v(f.id)}">
   <label class="f"><span>Name</span><input class="inp" id="f-name" value="${v(f.name)}" placeholder="e.g. Tvaroh jemný hrudkovitý"></label>
   <label class="f"><span>Brand (optional)</span><input class="inp" id="f-brand" value="${v(f.brand)}" placeholder="e.g. Rajo"></label>

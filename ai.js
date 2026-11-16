@@ -28,7 +28,8 @@ If the message is not about food or drink, return an empty items list and say so
 
 The user may send a photo, with or without text.
 - A nutrition label or the back of a pack: copy the per-100 g values exactly as printed and use the product name from the pack in its original language. For grams, use the amount the user says they ate; if they say nothing, use one portion if the label states one, otherwise 100.
-- A plate or a meal: name each food you can see and estimate its weight from the picture, using the plate and cutlery for scale. Say in "note" that the amounts are estimated from the photo.`;
+- A plate or a meal: name each food you can see and estimate its weight from the picture, using the plate and cutlery for scale. Say in "note" that the amounts are estimated from the photo.
+- If the user also describes the photo in words, trust the description for what the foods are and how they were prepared, including things the photo cannot show such as butter, oil or sauce. Use the photo mainly to judge the amounts.`;
 
 let aiImg = null;   // photo to send along, as base64 JPEG
 // Shrinks a photo so it uploads quickly; 1280 px is plenty to read a label.
@@ -48,6 +49,9 @@ function aiShrink(file) {
 function aiPhotoBox() {
   const box = $('#ai-photobox'); if (!box) return;
   box.innerHTML = aiImg ? `<div class="aiphoto"><img src="data:image/jpeg;base64,${aiImg}" alt="Your photo"><button class="x" data-a="aiNoPhoto" aria-label="Remove photo">✕</button></div>` : '<button class="btn ghost sm" data-a="aiPhoto">📷 Add a photo of the food or the label</button>';
+  const q = $('#ai-q');
+  if (q) q.placeholder = aiImg ? 'Describe the photo for a better estimate (optional), e.g. chicken breast with potatoes in herb butter' : 'e.g. 75 g cooked beef shoulder';
+  const lab = $('#ai-qlabel'); if (lab) lab.textContent = aiImg ? 'What is in the photo? (optional, but it helps)' : 'What did you eat?';
 }
 document.addEventListener('change', async ev => {
   if (ev.target.id !== 'ai-photo' || !ev.target.files[0]) return;
@@ -60,35 +64,31 @@ let aiRes = null, aiBusy = false;
 // Free Gemini models, tried in order: if one is missing or has used up its free quota for now, the next one is asked.
 const AI_MODELS = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
 
-// The request is tried in up to three forms, because Google has changed how a fixed answer format is asked for:
-// the current form, the earlier form, and last a plain request that relies on the instructions alone.
-const AI_FORMATS = [
-  { response_format: { type: 'text', mime_type: 'application/json', schema: AI_SCHEMA } },
-  { response_mime_type: 'application/json', response_format: AI_SCHEMA },
-  {},
-];
 const AI_JSON_RULE = `
 
 Answer with JSON only, no other text, in exactly this shape:
 {"items":[{"name":"","grams":0,"kcal_per_100g":0,"protein_per_100g":0,"carbs_per_100g":0,"fat_per_100g":0,"fiber_per_100g":0,"sugars_per_100g":0,"saturated_fat_per_100g":0,"salt_per_100g":0}],"note":""}`;
 
-async function aiEstimate(text, image) {
-  const input = image ? [{ type: 'text', text: text || 'This is a photo of what I ate, or of its nutrition label.' }, { type: 'image', data: image, mime_type: 'image/jpeg' }] : text;
+// Sends one question to Gemini and returns its JSON answer.
+// The request is tried in up to three forms, because Google has changed how a fixed answer format is asked for:
+// the current form, the earlier form, and last a plain request that relies on the instructions alone.
+async function aiCall(system, input, schema) {
+  const formats = [{ response_format: { type: 'text', mime_type: 'application/json', schema } }, { response_mime_type: 'application/json', response_format: schema }, {}];
   let last = null;
   for (const model of AI_MODELS) {
-    for (const fmt of AI_FORMATS) {
+    for (const fmt of formats) {
       let res;
       try {
         res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'x-goog-api-key': S.aiKey },
-          body: JSON.stringify(Object.assign({ model, input, system_instruction: AI_SYSTEM + AI_JSON_RULE, store: false }, fmt)),
+          body: JSON.stringify(Object.assign({ model, input, system_instruction: system, store: false }, fmt)),
         });
       } catch (e) { throw new Error('No connection. The AI helper needs internet.'); }
       let data = null;
       try { data = await res.json(); } catch (e) { }
       if (Array.isArray(data)) data = data[0];
-      if (res.ok) return aiRead(data);
+      if (res.ok) return aiJson(data);
       const msg = (data && data.error && data.error.message) || '';
       if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new Error('The AI key was not accepted. Check it in the Me tab.');
       last = { status: res.status, msg };
@@ -100,12 +100,16 @@ async function aiEstimate(text, image) {
   if (last.status >= 500) throw new Error('The AI is busy right now. Try again in a moment.');
   throw new Error('The AI could not answer' + (last.msg ? ': ' + last.msg : '.'));
 }
-function aiRead(data) {
+function aiJson(data) {
   const texts = [];
   ((data && data.steps) || []).forEach(s => { if (s.type === 'model_output') (s.content || []).forEach(c => { if (c.type === 'text' && c.text) texts.push(c.text); }); });
   if (!texts.length) ((data && data.outputs) || []).forEach(c => { if (c.type === 'text' && c.text) texts.push(c.text); });   // earlier answer layout
-  let out;
-  try { const t = texts.join(''); out = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch (e) { throw new Error('The AI answer could not be read. Try again.'); }
+  try { const t = texts.join(''); return JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch (e) { throw new Error('The AI answer could not be read. Try again.'); }
+}
+const aiImage = (text, image) => [{ type: 'text', text }, { type: 'image', data: image, mime_type: 'image/jpeg' }];
+
+async function aiEstimate(text, image) {
+  const out = await aiCall(AI_SYSTEM + AI_JSON_RULE, image ? aiImage(text || 'This is a photo of what I ate, or of its nutrition label.', image) : text, AI_SCHEMA);
   const n = v => { v = +v; return isFinite(v) && v >= 0 ? v : 0; };
   return {
     note: String(out.note || ''),
@@ -116,6 +120,44 @@ function aiRead(data) {
   };
 }
 
+/* ---------- reading a nutrition label into the food form ---------- */
+const LABEL_NUMS = ['kcal', 'protein', 'carbs', 'fat', 'fiber', 'sugars', 'saturated_fat', 'salt', 'portion_g'];
+const LABEL_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['is_label', 'name', 'brand'].concat(LABEL_NUMS),
+  properties: Object.assign({ is_label: { type: 'boolean' }, name: { type: 'string' }, brand: { type: 'string' } }, Object.fromEntries(LABEL_NUMS.map(k => [k, { type: 'number' }]))),
+};
+const LABEL_SYSTEM = `You read nutrition labels for a calorie-tracking app. The photo shows the nutrition table on a food pack, in any language.
+
+Copy the values PER 100 g (or per 100 ml) exactly as printed. If the label only gives values per portion, convert them to per 100 g using the portion weight on the label. If energy is given only in kJ, divide by 4.184 for kcal.
+- kcal, protein, carbs, fat, fiber, sugars, saturated_fat, salt: per 100 g. If only sodium is printed, salt = sodium x 2.5.
+- portion_g: the weight of one portion in grams if the label states one.
+- name and brand: only if they are readable in the photo, in their original language; otherwise an empty string.
+Use -1 for every number that is not printed on the label. Never guess a value.
+Set is_label to false if the photo does not show a nutrition table, and then use -1 for all numbers.
+
+Answer with JSON only, no other text, in exactly this shape:
+{"is_label":true,"name":"","brand":"","kcal":0,"protein":0,"carbs":0,"fat":0,"fiber":0,"sugars":0,"saturated_fat":0,"salt":0,"portion_g":0}`;
+const LABEL_FIELDS = { kcal: '#f-kcal', protein: '#f-p', carbs: '#f-c', fat: '#f-f', fiber: '#f-fi', sugars: '#f-su', saturated_fat: '#f-sf', salt: '#f-sa', portion_g: '#f-serv' };
+async function labelFill(file) {
+  const msg = t => { const m = $('#lb-msg'); if (m) m.innerHTML = t; };
+  msg('<p class="center muted" style="margin:10px 0">Reading the label… 🥔</p>');
+  try {
+    const out = await aiCall(LABEL_SYSTEM, aiImage('Read this nutrition label.', await aiShrink(file)), LABEL_SCHEMA);
+    if (!$('#f-kcal')) return;   // the form was closed meanwhile
+    const got = LABEL_NUMS.filter(k => isFinite(+out[k]) && +out[k] >= 0);
+    if (out.is_label === false || !got.includes('kcal')) return msg('<div class="note" style="margin-top:10px">I could not read a nutrition table in that photo. Try again closer and straight on, with good light.</div>');
+    got.forEach(k => { $(LABEL_FIELDS[k]).value = r1(+out[k]); });
+    if (!$('#f-name').value.trim() && out.name) $('#f-name').value = String(out.name).slice(0, 80);
+    if (!$('#f-brand').value.trim() && out.brand) $('#f-brand').value = String(out.brand).slice(0, 40);
+    $('#f-grade').value = '';   // the grade is worked out again from the new numbers
+    msg('<div class="note" style="margin-top:10px">Filled in from the photo ✓ Check the numbers against the label before you save.</div>');
+  } catch (e) { msg(`<div class="note" style="margin-top:10px">${esc(e.message === 'photo' ? 'That photo could not be opened.' : e.message)}</div>`); }
+}
+document.addEventListener('change', ev => {
+  if (ev.target.id !== 'lb-photo' || !ev.target.files[0]) return;
+  const f = ev.target.files[0]; ev.target.value = ''; labelFill(f);
+});
+
 function sheetAI() {
   aiRes = null; aiImg = null;
   if (!S.aiKey) {
@@ -124,7 +166,7 @@ function sheetAI() {
     <button class="btn" data-a="aiSetup">Set it up in the Me tab</button></div>`, true);
   }
   openSheet(`${shHead('✨ Ask the AI')}<div class="sh-body">
-  <label class="f"><span>What did you eat?</span><textarea class="inp" id="ai-q" rows="3" placeholder="e.g. 75 g cooked beef shoulder"></textarea></label>
+  <label class="f"><span id="ai-qlabel">What did you eat?</span><textarea class="inp" id="ai-q" rows="3" placeholder="e.g. 75 g cooked beef shoulder"></textarea></label>
   <input type="file" id="ai-photo" accept="image/*" hidden><div id="ai-photobox" style="margin-bottom:10px"></div>
   <button class="btn" data-a="aiAsk">Work it out</button>
   <div id="ai-out" style="margin-top:14px"></div></div>`);
@@ -149,6 +191,7 @@ const AI_ACTIONS = {
   openAI() { sheetAI(); },
   aiPhoto() { $('#ai-photo').click(); },
   aiNoPhoto() { aiImg = null; aiPhotoBox(); },
+  labelPhoto() { if (!S.aiKey) return toast('Set up the AI helper in the Me tab first'); $('#lb-photo').click(); },
   aiSetup() { backToMeal = null; closeSheet(); tab = 'me'; render(); const c = $('#ai-card'); if (c) c.scrollIntoView(); },
   async aiAsk() {
     const q = $('#ai-q').value.trim();
