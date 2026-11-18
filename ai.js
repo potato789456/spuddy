@@ -223,7 +223,7 @@ function draftRestore() {
   draftClear();
   if (!d || !d.f || Date.now() - d.t > 10 * 60 * 1000 || !S.onboarded) return;
   if (MEALS.some(m => m[0] === d.addMeal)) addMeal = d.addMeal;
-  if (/^\d{4}-\d\d-\d\d$/.test(d.day || '') && d.day <= today()) day = d.day;
+  if (/^\d{4}-\d\d-\d\d$/.test(d.day || '') && d.day <= lastDay()) day = d.day;
   tab = 'today'; render();
   sheetFood(d.f, 'The phone restarted Spuddy while the camera was open. Your food is back as you left it. Try the photo again.');
 }

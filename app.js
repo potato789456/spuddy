@@ -12,6 +12,7 @@ const r1 = n => Math.round(n * 10) / 10;
 const norm = s => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 const dstr = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const today = () => dstr(new Date());
+const lastDay = () => addDays(today(), 1);   // food can be logged ahead, for tomorrow
 const parseD = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate() + n); return dstr(d); };
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
@@ -131,7 +132,7 @@ function settleRewards() {
   const t = today(), msgs = [];
   let gained = 0;
   Object.keys(S.log).forEach(d => {
-    if (!hasLog(d)) return;
+    if (!hasLog(d) || d > t) return;   // food logged ahead earns its coins when the day comes
     const r = S.rew[d] || (S.rew[d] = {});
     if (!r.log) { r.log = 1; gained += 10; msgs.push(`Day logged  +10 ${COIN}`); }
     if (d < t && r.goal !== 1) {
@@ -160,6 +161,7 @@ function niceDate(d) {
   const t = today();
   if (d === t) return 'Today';
   if (d === addDays(t, -1)) return 'Yesterday';
+  if (d === addDays(t, 1)) return 'Tomorrow';
   return parseD(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
 }
 function render() {
@@ -190,7 +192,7 @@ function viewToday() {
       <div class="mid"><b>${Math.abs(left)}</b><span>kcal ${over ? 'over' : 'left'}</span></div></div>
     <div class="sumside"><div class="line"><span>Eaten</span><b>${Math.round(t.kcal)}</b></div><div class="line"><span>Goal</span><b>${g.kcal}</b></div><div class="line"><span>Food quality</span><b>${badge(mixGrade(dayLog(day))) || '–'}</b></div></div>
   </div><div class="macros">${macroBar('Protein', t.p, g.p)}${macroBar('Carbs', t.c, g.c)}${macroBar('Fat', t.f, g.f)}${macroBar('Fiber', t.fi, g.fi)}</div></div>
-  <div class="daynav"><button data-a="day" data-d="-1" aria-label="Previous day">‹</button><button class="daybtn" data-a="openCal">${niceDate(day)} <span class="caret">▾</span></button><button data-a="day" data-d="1" aria-label="Next day" ${day >= today() ? 'disabled' : ''}>›</button></div>
+  <div class="daynav"><button data-a="day" data-d="-1" aria-label="Previous day">‹</button><button class="daybtn" data-a="openCal">${niceDate(day)} <span class="caret">▾</span></button><button data-a="day" data-d="1" aria-label="Next day" ${day >= lastDay() ? 'disabled' : ''}>›</button></div>
   ${backupDue() ? `<div class="card"><b>🥔 Time for a backup</b><p class="muted small" style="margin:6px 0 12px">${S.lastBackup ? 'Your last backup was on ' + niceDate(S.lastBackup) + '.' : "You haven't saved a backup yet."} It keeps your foods, your days and your potato safe.</p><button class="btn sm" data-a="exportData">Save backup  +5 ${COIN}</button></div>` : ''}
   ${meals}${day === today() ? weekCard() : ''}`;
 }
@@ -358,9 +360,9 @@ function sheetCal() {
   let cells = '<i></i>'.repeat((first.getDay() + 6) % 7);
   for (let d = 1; d <= n; d++) {
     const ds = `${calMonth}-${String(d).padStart(2, '0')}`, mk = dayMark(ds);
-    cells += `<button class="cd ${ds === day ? 'sel' : ''} ${ds === t ? 'now' : ''}" data-a="pickDay" data-d="${ds}" ${ds > t ? 'disabled' : ''}><span>${d}</span><em>${mk ? `<i class="cbar ${mk.color}"></i>${badge(mk.gr)}` : ''}</em></button>`;
+    cells += `<button class="cd ${ds === day ? 'sel' : ''} ${ds === t ? 'now' : ''}" data-a="pickDay" data-d="${ds}" ${ds > lastDay() ? 'disabled' : ''}><span>${d}</span><em>${mk ? `<i class="cbar ${mk.color}"></i>${badge(mk.gr)}` : ''}</em></button>`;
   }
-  openSheet(`<div class="sh-head"><button class="x" data-a="calNav" data-d="-1" aria-label="Previous month">‹</button><h2 class="center">${first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2><button class="x" data-a="calNav" data-d="1" aria-label="Next month" ${calMonth >= t.slice(0, 7) ? 'disabled' : ''}>›</button><button class="x" data-a="closeSheet" aria-label="Close">✕</button></div>
+  openSheet(`<div class="sh-head"><button class="x" data-a="calNav" data-d="-1" aria-label="Previous month">‹</button><h2 class="center">${first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2><button class="x" data-a="calNav" data-d="1" aria-label="Next month" ${calMonth >= lastDay().slice(0, 7) ? 'disabled' : ''}>›</button><button class="x" data-a="closeSheet" aria-label="Close">✕</button></div>
   <div class="sh-body"><div class="cal wk">${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(w => `<b>${w}</b>`).join('')}</div><div class="cal">${cells}</div>
   <div class="legend"><b>Calories (line)</b><div><i class="cbar g"></i> At or under the calorie goal</div><div><i class="cbar o"></i> Up to 100 kcal over</div><div><i class="cbar r"></i> More than 100 kcal over</div>
   <b style="margin-top:8px">Food quality (dot)</b><div>${['A', 'B', 'C', 'D', 'E'].map(badge).join(' ')} &nbsp;from best to worst — the average of everything eaten that day</div></div></div></div>`, true);
@@ -547,7 +549,7 @@ document.addEventListener('touchcancel', () => swipeEnd(true));
 /* ---------- actions ---------- */
 const A = {
   tab(el) { tab = el.dataset.tab; render(); window.scrollTo(0, 0); if (tab === 'friends') fetchFriends(); },
-  day(el) { const d = addDays(day, +el.dataset.d); if (d <= today()) { day = d; render(); } },
+  day(el) { const d = addDays(day, +el.dataset.d); if (d <= lastDay()) { day = d; render(); } },
   closeSheet() {
     if (backToMeal && !$('#sheet').classList.contains('mealsheet')) { stopScanner(); return sheetMeal(backToMeal); }
     backToMeal = null; closeSheet();
