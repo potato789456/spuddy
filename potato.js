@@ -8,7 +8,11 @@ const stem = (x1, y1, x2, y2, w) => `<path d="M${x1} ${y1} L${x2} ${y2}" stroke=
 const tree = (c1, c2, dots) => `<rect x="-6" y="-52" width="12" height="54" rx="3" fill="#A9794B"/><circle cx="-22" cy="-60" r="23" fill="${c2}"/><circle cx="22" cy="-60" r="23" fill="${c2}"/><circle cx="0" cy="-78" r="31" fill="${c1}"/>${dots || ''}`;
 const tulip = (x, y, c) => stem(x, 0, x, y) + `<path transform="translate(${x} ${y})" d="M-6 0 Q-7 -11 -6 -14 L-2 -8 L0 -15 L2 -8 L6 -14 Q7 -11 6 0 Q0 5 -6 0Z" fill="${c}"/>`;
 
-const hairCap = c => `<path d="M58 94 Q52 52 100 50 Q148 52 142 94 Q136 68 100 66 Q64 68 58 94Z" fill="${c}"/>`;
+// Hair sits on top of the head, following its outline, with a soft fringe across the forehead.
+const hairCap = c => `<path d="M47 98 C44 70 66 51 100 51 C135 50 158 70 155 98 Q149 80 138 75 Q130 85 120 73 Q110 85 100 73 Q90 85 80 73 Q70 85 62 75 Q52 80 47 98Z" fill="${c}"/>`;
+// Long hair falling down the sides, mostly outside the face.
+const hairSides = c => `<path d="M52 84 C36 108 34 150 44 174 Q52 180 58 170 C50 144 52 112 62 90Z M148 84 C164 108 166 150 156 174 Q148 180 142 170 C150 144 148 112 138 90Z" fill="${c}"/>`;
+const hairWaves = c => `<path d="M52 84 Q36 100 44 116 Q34 132 44 148 Q36 162 48 174 Q58 172 56 160 Q48 148 56 134 Q46 120 56 106 Q52 96 62 90Z M148 84 Q164 100 156 116 Q166 132 156 148 Q164 162 152 174 Q142 172 144 160 Q152 148 144 134 Q154 120 144 106 Q148 96 138 90Z" fill="${c}"/>`;
 const shoePair = (fill, sole, extra) => `<g stroke="rgba(59,42,26,.28)" stroke-width="1.3"><path d="M64 211 Q62 199 76 198 L89 198 L89 211Z" fill="${fill}"/><path d="M136 211 Q138 199 124 198 L111 198 L111 211Z" fill="${fill}"/></g><path d="M63 211 H90 M110 211 H137" stroke="${sole}" stroke-width="3" stroke-linecap="round"/>${extra || ''}`;
 const bootPair = (fill, sole, extra) => `<path d="M72 187 H89 V211 H63 Q62 201 72 200Z" fill="${fill}"/><path d="M128 187 H111 V211 H137 Q138 201 128 200Z" fill="${fill}"/><path d="M62 211 H90 M110 211 H138" stroke="${sole}" stroke-width="3" stroke-linecap="round"/>${extra || ''}`;
 const catPet = (body, head, stripe, eye) => `<path d="M13 -8 Q28 -12 23 -30" stroke="${body}" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="0" cy="-12" rx="14" ry="12" fill="${body}"/><path d="M-10 -36 L-9 -47 L-1 -40Z M10 -36 L9 -47 L1 -40Z" fill="${body}"/><circle cx="0" cy="-30" r="11.5" fill="${head}"/><path d="M-4 -40 V-36 M0 -41 V-36 M4 -40 V-36" stroke="${stripe}" stroke-width="1.6" stroke-linecap="round"/><circle cx="-4.5" cy="-31" r="1.9" fill="${eye}"/><circle cx="4.5" cy="-31" r="1.9" fill="${eye}"/><path d="M-1.6 -27 L1.6 -27 L0 -25Z" fill="#FF8FA8"/><path d="M-6 -26 L-15 -28 M-6 -24.5 L-15 -23.5 M6 -26 L15 -28 M6 -24.5 L15 -23.5" stroke="${eye === '#3B2A1A' ? '#3B2A1A' : '#9AA3AD'}" stroke-width=".8"/>`;
@@ -88,7 +92,7 @@ const ITEMS = [
   { id: 'princess', cat: 'costume', name: 'Princess', price: 240, svg: `<path d="M58 152 Q100 142 142 152 L174 204 Q100 216 26 204Z" fill="#F7A8D0" stroke="#E57FB6" stroke-width="2" stroke-linejoin="round"/><path d="M50 196 Q100 206 150 196" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/>` + wear(`<rect x="40" y="141" width="120" height="14" fill="#E57FB6"/>`) + `<path d="M80 64 L76 44 L90 54 L100 38 L110 54 L124 44 L120 64Z" fill="#FFD23F" stroke="#E0A800" stroke-width="2" stroke-linejoin="round"/><circle cx="100" cy="55" r="4" fill="#FF5C8A"/>` },
   { id: 'bee', cat: 'costume', name: 'Bumblebee', price: 200, back: `<ellipse cx="38" cy="118" rx="22" ry="30" fill="#DDF3FF" stroke="#B5DDF5" stroke-width="2" transform="rotate(-20 38 118)"/><ellipse cx="162" cy="118" rx="22" ry="30" fill="#DDF3FF" stroke="#B5DDF5" stroke-width="2" transform="rotate(20 162 118)"/>`, svg: wear(`<rect x="40" y="146" width="120" height="60" fill="#FFD23F"/><path d="M40 157 H160 M40 177 H160 M40 197 H160" stroke="#2B2B33" stroke-width="9"/>`) + `<path d="M86 62 Q80 42 70 36 M114 62 Q120 42 130 36" stroke="#2B2B33" stroke-width="3.5" fill="none" stroke-linecap="round"/><circle cx="69" cy="35" r="5" fill="#2B2B33"/><circle cx="131" cy="35" r="5" fill="#2B2B33"/>` },
   { id: 'trader', cat: 'costume', name: 'Trader', price: 250, svg: wear(`<rect x="40" y="142" width="120" height="64" fill="#1F2A44"/><path d="M82 142 L100 176 L118 142Z" fill="#fff"/><path d="M82 142 L100 176 M118 142 L100 176" stroke="#141C30" stroke-width="3"/>`) + `<path d="M96 146 L104 146 L106 166 L100 175 L94 166Z" fill="#D7263D"/><path d="M56 100 Q54 52 100 52 Q146 52 144 100" stroke="#2B2B33" stroke-width="5" fill="none"/><rect x="48" y="92" width="13" height="22" rx="6" fill="#2B2B33"/><rect x="139" y="92" width="13" height="22" rx="6" fill="#2B2B33"/><path d="M54 114 Q58 138 78 140" stroke="#2B2B33" stroke-width="3" fill="none"/><circle cx="80" cy="140" r="4" fill="#2B2B33"/>`, propL: `<rect x="2" y="112" width="42" height="36" rx="5" fill="#10192E" stroke="#2F3B5C" stroke-width="2"/><path d="M8 140 L16 131 L22 135 L30 123 L38 117" stroke="#37D67A" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M38 117 L31 117 M38 117 L38 124" stroke="#37D67A" stroke-width="3" stroke-linecap="round"/>` },
-  { id: 'seller', cat: 'costume', name: 'Etsy seller', price: 250, svg: wear(`<path d="M80 134 L72 150 M120 134 L128 150" stroke="#D9530F" stroke-width="5"/><rect x="58" y="148" width="84" height="60" rx="6" fill="#F1641E"/>`) + `<rect x="86" y="166" width="28" height="18" rx="4" fill="#D9530F"/>${heart(100, 175, 0.55, '#fff')}<path d="M58 82 Q60 54 100 54 Q140 54 142 82 Q100 66 58 82Z" fill="#F7C8D8" stroke="#E79CB8" stroke-width="1.5"/><path d="M140 76 L156 70 L152 86Z" fill="#F7C8D8" stroke="#E79CB8" stroke-width="1.5" stroke-linejoin="round"/>`, propL: `<rect x="4" y="126" width="36" height="30" rx="3" fill="#D9A766" stroke="#B5803F" stroke-width="2"/><rect x="19" y="126" width="6" height="30" fill="#F2E2C4"/>${heart(32, 147, 0.38, '#E0463C')}` },
+  { id: 'seller', cat: 'costume', name: 'Etsy seller', price: 250, svg: wear(`<path d="M66 152 L48 124 M134 152 L152 124" stroke="#D9530F" stroke-width="6" stroke-linecap="round"/><rect x="58" y="148" width="84" height="60" rx="6" fill="#F1641E"/>`) + `<rect x="86" y="166" width="28" height="18" rx="4" fill="#D9530F"/>${heart(100, 175, 0.55, '#fff')}<path d="M58 82 Q60 54 100 54 Q140 54 142 82 Q100 66 58 82Z" fill="#F7C8D8" stroke="#E79CB8" stroke-width="1.5"/><path d="M140 76 L156 70 L152 86Z" fill="#F7C8D8" stroke="#E79CB8" stroke-width="1.5" stroke-linejoin="round"/>`, propL: `<rect x="4" y="126" width="36" height="30" rx="3" fill="#D9A766" stroke="#B5803F" stroke-width="2"/><rect x="19" y="126" width="6" height="30" fill="#F2E2C4"/>${heart(32, 147, 0.38, '#E0463C')}` },
 
   // Pets (one at a time; they stand next to the potato in the garden)
   { id: 'cat', cat: 'pet', name: 'Cat', price: 160, box: '-28 -52 56 56', svg: `<path d="M13 -8 Q28 -12 23 -30" stroke="#F2A65A" stroke-width="5" fill="none" stroke-linecap="round"/><ellipse cx="0" cy="-12" rx="14" ry="12" fill="#F2A65A"/><path d="M-10 -36 L-9 -47 L-1 -40Z M10 -36 L9 -47 L1 -40Z" fill="#F2A65A"/><circle cx="0" cy="-30" r="11.5" fill="#F7B878"/><path d="M-4 -40 V-36 M0 -41 V-36 M4 -40 V-36" stroke="#D98636" stroke-width="1.6" stroke-linecap="round"/><circle cx="-4.5" cy="-31" r="1.7" fill="#3B2A1A"/><circle cx="4.5" cy="-31" r="1.7" fill="#3B2A1A"/><path d="M-1.6 -27 L1.6 -27 L0 -25Z" fill="#FF8FA8"/><path d="M-6 -26 L-15 -28 M-6 -24.5 L-15 -23.5 M6 -26 L15 -28 M6 -24.5 L15 -23.5" stroke="#3B2A1A" stroke-width=".8"/>` },
@@ -110,6 +114,8 @@ const ITEMS = [
   { id: 'wood', cat: 'fence', name: 'Wooden fence', price: 80 },
   { id: 'hedge', cat: 'fence', name: 'Hedge', price: 100 },
   { id: 'stone', cat: 'fence', name: 'Stone wall', price: 120 },
+  { id: 'fairylights', cat: 'lights', name: 'Fairy lights', price: 80 },
+  { id: 'warmlights', cat: 'lights', name: 'Warm lights', price: 80 },
   { id: 'lawn', cat: 'ground', name: 'Plain grass', price: 0 },
   { id: 'stripes', cat: 'ground', name: 'Mowed stripes', price: 60 },
   { id: 'meadowflowers', cat: 'ground', name: 'Flower meadow', price: 90 },
@@ -118,14 +124,14 @@ const ITEMS = [
 
   // Hair
   { id: 'hairshort', cat: 'hair', name: 'Short brown', price: 40, svg: hairCap('#6B4423') },
-  { id: 'hairlong', cat: 'hair', name: 'Long blonde', price: 60, svg: hairCap('#F2C94C') + `<path d="M58 86 Q44 122 52 164 Q62 170 68 154 Q58 120 68 86Z M142 86 Q156 122 148 164 Q138 170 132 154 Q142 120 132 86Z" fill="#F2C94C"/>` },
-  { id: 'hairpony', cat: 'hair', name: 'Ponytail', price: 50, svg: `<path d="M138 70 Q176 62 170 116 Q160 98 146 94Z" fill="#A0522D"/>` + hairCap('#A0522D') + `<circle cx="141" cy="76" r="5" fill="#FF7FAE"/>` },
-  { id: 'hairpig', cat: 'hair', name: 'Pigtails', price: 60, svg: `<path d="M64 68 Q30 36 26 76 Q42 72 56 86Z M136 68 Q170 36 174 76 Q158 72 144 86Z" fill="#4A78C2"/>` + hairCap('#4A78C2') + `<circle cx="60" cy="74" r="4.5" fill="#FFD23F"/><circle cx="140" cy="74" r="4.5" fill="#FFD23F"/>` },
-  { id: 'haircurly', cat: 'hair', name: 'Curls', price: 60, svg: [[58, 92], [142, 92], [62, 76], [138, 76], [74, 63], [126, 63], [90, 55], [110, 55], [100, 52]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="12" fill="#3B2A1A"/>`).join('') },
-  { id: 'hairbun', cat: 'hair', name: 'Top bun', price: 50, svg: `<circle cx="100" cy="42" r="15" fill="#2B2B33"/>` + hairCap('#2B2B33') },
-  { id: 'hairbob', cat: 'hair', name: 'Pink bob', price: 70, svg: `<path d="M52 134 Q42 54 100 48 Q158 54 148 134 Q140 140 134 130 Q142 74 100 68 Q58 74 66 130 Q60 140 52 134Z" fill="#F58BB7"/>` },
+  { id: 'hairlong', cat: 'hair', name: 'Long blonde', price: 60, svg: hairSides('#F2C94C') + hairCap('#F2C94C') },
+  { id: 'hairpony', cat: 'hair', name: 'Ponytail', price: 50, svg: `<path d="M142 66 Q182 60 176 120 Q166 100 150 92Z" fill="#A0522D"/>` + hairCap('#A0522D') + `<circle cx="146" cy="68" r="5" fill="#FF7FAE"/>` },
+  { id: 'hairpig', cat: 'hair', name: 'Pigtails', price: 60, svg: `<path d="M58 78 Q28 74 22 120 Q30 128 34 118 Q36 96 52 92Z M142 78 Q172 74 178 120 Q170 128 166 118 Q164 96 148 92Z" fill="#4A78C2"/>` + hairCap('#4A78C2') + `<circle cx="52" cy="84" r="5" fill="#FFD23F"/><circle cx="148" cy="84" r="5" fill="#FFD23F"/>` },
+  { id: 'haircurly', cat: 'hair', name: 'Curls', price: 60, svg: hairCap('#3B2A1A') + [[50, 94], [54, 78], [64, 64], [80, 55], [100, 51], [120, 55], [136, 64], [146, 78], [150, 94], [72, 76], [92, 72], [110, 72], [128, 76]].map(q => `<circle cx="${q[0]}" cy="${q[1]}" r="${q[1] > 70 && q[0] > 60 && q[0] < 140 ? 8 : 11}" fill="#3B2A1A"/>`).join('') },
+  { id: 'hairbun', cat: 'hair', name: 'Top bun', price: 50, svg: `<circle cx="100" cy="40" r="15" fill="#2B2B33"/>` + hairCap('#2B2B33') },
+  { id: 'hairbob', cat: 'hair', name: 'Pink bob', price: 70, svg: `<path d="M42 134 C36 86 58 48 100 48 C142 48 164 86 158 134 Q152 142 146 134 C148 112 147 98 143 88 Q122 82 100 82 Q78 82 57 88 C53 98 52 112 54 134 Q48 142 42 134Z" fill="#F58BB7"/>` },
   { id: 'hairmohawk', cat: 'hair', name: 'Mohawk', price: 70, svg: `<path d="M86 66 L90 34 L96 54 L103 26 L109 54 L116 36 L116 66Z" fill="#FF4F9A" stroke="#FF4F9A" stroke-width="3" stroke-linejoin="round"/>` },
-  { id: 'hairginger', cat: 'hair', name: 'Ginger waves', price: 60, svg: hairCap('#D9662B') + `<path d="M58 88 Q46 110 56 128 Q50 140 60 150 Q68 146 64 132 Q70 116 64 88Z M142 88 Q154 110 144 128 Q150 140 140 150 Q132 146 136 132 Q130 116 136 88Z" fill="#D9662B"/>` },
+  { id: 'hairginger', cat: 'hair', name: 'Ginger waves', price: 60, svg: hairWaves('#D9662B') + hairCap('#D9662B') },
   // More hats, outfits, hand items
   { id: 'santahat', cat: 'hat', name: 'Santa hat', price: 60, svg: `<path d="M56 76 Q56 30 100 30 Q146 30 164 90 L150 88 Q144 66 144 76Z" fill="#D7263D"/><rect x="52" y="66" width="96" height="15" rx="7.5" fill="#fff" stroke="#E6E0D6" stroke-width="1.5"/><circle cx="159" cy="92" r="9" fill="#fff" stroke="#E6E0D6" stroke-width="1.5"/>` },
   { id: 'xmassweater', cat: 'outfit', name: 'Christmas sweater', price: 90, svg: wear(`<rect x="40" y="142" width="120" height="64" fill="#C62F3B"/><rect x="40" y="140" width="120" height="7" fill="#2E8B4E"/><path d="M40 162 L52 152 L64 162 L76 152 L88 162 L100 152 L112 162 L124 152 L136 162 L148 152 L160 162" stroke="#fff" stroke-width="3.5" fill="none"/><rect x="40" y="186" width="120" height="6" fill="#2E8B4E"/>`) + `<g fill="#fff"><circle cx="70" cy="175" r="2.4"/><circle cx="100" cy="177" r="2.4"/><circle cx="130" cy="175" r="2.4"/></g><path d="M100 164 L93 174 H107Z" fill="#2E8B4E"/>` },
@@ -148,7 +154,7 @@ const ITEMS = [
   { id: 'xmastree', cat: 'garden', sub: 'Christmas', name: 'Christmas tree', price: 0, gift: true, x: 82, y: 300, box: '-70 -192 140 198' },
   { id: 'gifts', cat: 'garden', sub: 'Christmas', name: 'Gifts', price: 40, x: 118, y: 396, box: '-30 -36 60 40', svg: `<rect x="-22" y="-20" width="24" height="20" rx="2" fill="#D7263D"/><rect x="-12" y="-20" width="5" height="20" fill="#FFD23F"/><rect x="-22" y="-12" width="24" height="4" fill="#FFD23F"/><path d="M-9.500 -20 Q-18 -30 -14 -20 M-9.5 -20 Q-1 -30 -5 -20" stroke="#FFD23F" stroke-width="2.5" fill="none"/><rect x="2" y="-14" width="20" height="14" rx="2" fill="#3FA35B"/><rect x="10" y="-14" width="4" height="14" fill="#fff"/><rect x="2" y="-9" width="20" height="3.5" fill="#fff"/>` },
   { id: 'jack', cat: 'garden', sub: 'Decorations', name: "Jack-o'-lantern", price: 45, x: 164, y: 398, box: '-26 -34 52 38', svg: `<ellipse cx="-9" cy="-11" rx="9.5" ry="11.5" fill="#EE8A2B"/><ellipse cx="9" cy="-11" rx="9.5" ry="11.5" fill="#EE8A2B"/><ellipse cx="0" cy="-11" rx="9.5" ry="12.5" fill="#F7A043"/><rect x="-2" y="-29" width="4" height="8" rx="1.5" fill="#5FA644"/><path d="M-9 -17 L-5 -11 H-13Z M9 -17 L13 -11 H5Z" fill="#FFE27A" stroke="#3B2A1A" stroke-width="1"/><path d="M-10 -6 L-6 -3 L-2 -6 L2 -3 L6 -6 L10 -3 L8 0 H-8Z" fill="#FFE27A" stroke="#3B2A1A" stroke-width="1" stroke-linejoin="round"/>` },
-  { id: 'fireflies', cat: 'garden', sub: 'Decorations', name: 'Fireflies', price: 70, x: 180, y: 360, box: '0 0 40 40', thumb: `<rect width="40" height="40" rx="8" fill="#2A3368"/>` + [[9, 11], [28, 8], [19, 22], [8, 30], [31, 29]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="#FFF3A0" opacity=".35"/><circle cx="${p[0]}" cy="${p[1]}" r="2" fill="#FFF36B"/>`).join(''), svg: [[-150, -112, 0], [-96, -70, 1.1], [-128, -30, 0.5], [118, -96, 1.6], [152, -52, 0.3], [96, -18, 0.9], [-40, -150, 1.3], [54, -140, 0.7], [-20, -92, 0.2], [26, -60, 1.5]].map(p => `<g><circle cx="${p[0]}" cy="${p[1]}" r="6" fill="#FFF3A0" opacity=".35"/><circle cx="${p[0]}" cy="${p[1]}" r="2.4" fill="#FFF36B"/><animate attributeName="opacity" values=".25;1;.25" dur="2.4s" begin="${p[2]}s" repeatCount="indefinite"/></g>`).join('') },
+  { id: 'fireflies', cat: 'garden', sub: 'Decorations', name: 'Fireflies', price: 70, x: 180, y: 360, box: '0 0 40 40', thumb: `<rect width="40" height="40" rx="8" fill="#2A3368"/>` + [[9, 11], [28, 8], [19, 22], [8, 30], [31, 29]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="#FFF3A0" opacity=".35"/><circle cx="${p[0]}" cy="${p[1]}" r="2" fill="#FFF36B"/>`).join(''), behind: true, svg: [[-150, -112, 0], [-96, -70, 1.1], [-128, -30, 0.5], [118, -96, 1.6], [152, -52, 0.3], [96, -18, 0.9], [-80, -168, 1.3], [80, -165, 0.7], [-118, -150, 0.2], [136, -140, 1.5]].map(p => `<g><circle cx="${p[0]}" cy="${p[1]}" r="6" fill="#FFF3A0" opacity=".35"/><circle cx="${p[0]}" cy="${p[1]}" r="2.4" fill="#FFF36B"/><animate attributeName="opacity" values=".25;1;.25" dur="2.4s" begin="${p[2]}s" repeatCount="indefinite"/></g>`).join('') },
 ];
 const ITEM_MAP = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 
@@ -254,7 +260,25 @@ function groundSVG(kind, s) {
   if (kind === 'snow') return `<rect y="205" width="360" height="${GARDEN_H - 205}" fill="#F7FBFF" opacity=".93"/>` + scatter(26, 5, (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="${(8 + r * 10).toFixed(0)}" ry="2.5" fill="#DCE9F5"/>`);
   return tufts;
 }
-function scene(id, fence, ground) {
+// A string of little bulbs hanging along the top of whichever fence is up.
+function fenceLights(fence, kind) {
+  const y0 = { hedge: 182, wood: 176, stone: 180 }[fence] || 177, warm = kind === 'warmlights';
+  const cols = warm ? ['#FFE7A3', '#FFD98A', '#FFF1C4'] : ['#FF5C6C', '#FFD23F', '#5BC0FF', '#7CD37C', '#FF8FD8'];
+  let wire = `M-6 ${y0}`, bulbs = '', n = 0;
+  for (let x = -6; x < 366; x += 46) {
+    wire += ` Q${x + 23} ${y0 + 12} ${x + 46} ${y0}`;
+    [0.25, 0.5, 0.75].forEach(t => {
+      const bx = x + 46 * t, by = y0 + 24 * t * (1 - t) + 3, c = cols[n % cols.length], d = (n * 0.37) % 2.2; n++;
+      bulbs += `<g><circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="7.5" fill="${c}" opacity=".35"/><circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="3.4" fill="${c}" stroke="rgba(0,0,0,.18)" stroke-width=".6"/>${n % 2 ? `<animate attributeName="opacity" values="1;.45;1" dur="${(1.8 + (n % 3) * 0.5).toFixed(1)}s" begin="${d.toFixed(2)}s" repeatCount="indefinite"/>` : ''}</g>`;
+    });
+  }
+  return `<path d="${wire}" stroke="#3E4A3C" stroke-width="1.2" fill="none" opacity=".7"/>${bulbs}`;
+}
+function snowHills(id) {
+  const c = id === 'night' ? ['#B9C3DB', '#C7D0E4'] : ['#E7EFF7', '#F3F7FB'];
+  return `<ellipse cx="80" cy="218" rx="175" ry="62" fill="${c[0]}"/><ellipse cx="295" cy="224" rx="165" ry="56" fill="${c[1]}"/>`;
+}
+function scene(id, fence, ground, lights) {
   if (!SCENES[id]) id = 'meadow';
   const s = SCENES[id];
   const grad = (gid, c) => `<linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c[0]}"/><stop offset="1" stop-color="${c[1]}"/></linearGradient>`;
@@ -262,8 +286,8 @@ function scene(id, fence, ground) {
   const showFence = s.fence !== false || (fence && fence !== 'picket');
   return {
     back: `<defs>${grad('sk-' + id, s.sky)}${grad('ln-' + id, s.lawn)}</defs><rect width="360" height="${GARDEN_H}" fill="url(#sk-${id})"/>${s.extra}`,
-    hills: s.hills,
-    front: `<rect y="205" width="360" height="${GARDEN_H - 205}" fill="url(#ln-${id})"/>${groundSVG(ground, s)}${showFence ? fenceSVG(fence) : ''}`,
+    hills: ground === 'snow' && id !== 'beach' ? snowHills(id) : s.hills,   // snow on the lawn means snow on the hills too
+    front: `<rect y="205" width="360" height="${GARDEN_H - 205}" fill="url(#ln-${id})"/>${groundSVG(ground, s)}${showFence ? fenceSVG(fence) + (ITEM_MAP[lights] && ITEM_MAP[lights].cat === 'lights' ? fenceLights(fence, lights) : '') : ''}`,
   };
 }
 const PET_SPOT = { x: 264, y: 352 };
@@ -289,7 +313,7 @@ function gardenParts(i) {
 }
 function gardenSVG(eq, placed, mood, orn) {
   eq = eq || {};
-  const sc = scene(eq.bg, eq.fence, eq.ground);
+  const sc = scene(eq.bg, eq.fence, eq.ground, eq.lights);
   const its = [].concat(...oneEach(placed).map(id => ITEM_MAP[id]).filter(i => i && i.cat === 'garden').map(gardenParts));
   const pet = ITEM_MAP[eq.pet];
   // With a big item out, the potato steps to the left to make room (unless the Christmas tree stands there).
@@ -299,13 +323,17 @@ function gardenSVG(eq, placed, mood, orn) {
   its.sort((a, b) => a.y - b.y);
   const put = f => its.filter(f).map(i => i.id === 'xmastree' ? `<g transform="translate(${i.x} ${i.y}) scale(1.3)">${treeSVG(orn)}</g>` : `<g transform="translate(${i.x} ${i.y})${i.s ? ` scale(${i.s})` : ''}">${i.svg}</g>`).join('');
   return `<svg class="garden" viewBox="0 0 360 ${GARDEN_H}" xmlns="http://www.w3.org/2000/svg">
-${sc.back}${put(i => i.layer === 0)}${sc.hills}${put(i => i.layer === 1)}${sc.front}${put(i => i.layer === undefined && i.y <= 358)}
+${sc.back}${put(i => i.layer === 0)}${sc.hills}${put(i => i.layer === 1)}${sc.front}${put(i => i.layer === undefined && (i.y <= 358 || i.behind))}
 <g transform="translate(${aside ? 36 : 80} 150)">${potatoInner(eq, mood, true)}</g>
-${put(i => i.layer === undefined && i.y > 358)}</svg>`;
+${put(i => i.layer === undefined && i.y > 358 && !i.behind)}</svg>`;
 }
 // Small picture of one item for the shop.
 function itemThumb(i, px) {
   if (i.cat === 'garden' || i.cat === 'pet') return `<svg class="thumb" viewBox="${i.box}" width="${px}" height="${px}" xmlns="http://www.w3.org/2000/svg">${i.id === 'xmastree' ? treeSVG({}) : i.thumb || i.svg}</svg>`;
+  if (i.cat === 'lights') {
+    const sc = scene('night', 'picket', 'lawn', i.id);
+    return `<svg class="thumb scene" viewBox="60 130 120 120" width="${px}" height="${px}" xmlns="http://www.w3.org/2000/svg">${sc.back}${sc.hills}${sc.front}</svg>`;
+  }
   if (i.cat === 'bg' || i.cat === 'fence' || i.cat === 'ground') {
     const sc = i.cat === 'bg' ? scene(i.id) : scene('meadow', i.cat === 'fence' ? i.id : 'picket', i.cat === 'ground' ? i.id : 'lawn');
     return `<svg class="thumb scene" viewBox="${i.cat === 'bg' ? '0 40 360 360' : i.cat === 'fence' ? '60 130 120 120' : '40 170 190 190'}" width="${px}" height="${px}" xmlns="http://www.w3.org/2000/svg">${sc.back}${sc.hills}${sc.front}</svg>`;

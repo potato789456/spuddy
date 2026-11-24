@@ -237,7 +237,7 @@ function friendCard(f) {
   if (!c) return `<div class="card"><div class="row"><b class="grow">Code ${esc(fmtCode(f.code))}</b>${del}</div><p class="muted small" style="margin-top:6px">Nothing shared yet. Ask them to open Spuddy and turn sharing on.</p></div>`;
   const n = v => Math.round(Number(v) || 0), g = x => /^[A-E]$/.test(x || '') ? x : null;
   const goal = c.goal || {}, t = today(), days = Array.isArray(c.days) ? c.days : [], td = days.find(d => d.d === t);
-  const eq = {}; ['hat', 'hair', 'glasses', 'neck', 'outfit', 'shoes', 'hand', 'bg', 'costume', 'pet', 'fence', 'ground'].forEach(k => { const i = ITEM_MAP[c.eq && c.eq[k]]; if (i && i.cat === k) eq[k] = i.id; });
+  const eq = {}; ['hat', 'hair', 'glasses', 'neck', 'outfit', 'shoes', 'hand', 'bg', 'costume', 'pet', 'fence', 'ground', 'lights'].forEach(k => { const i = ITEM_MAP[c.eq && c.eq[k]]; if (i && i.cat === k) eq[k] = i.id; });
   eq.tint = {}; Object.entries((c.eq && c.eq.tint) || {}).forEach(([id, col]) => { if (TINTS[id] && /^#[0-9a-f]{6}$/i.test(col)) eq.tint[id] = col; });
   const garden = (Array.isArray(c.garden) ? c.garden : []).filter(id => ITEM_MAP[id]);
   const col = k => { const over = n(k) - n(goal.kcal); return over <= 0 ? 'g' : over <= 100 ? 'o' : 'r'; };

@@ -214,7 +214,7 @@ function shopItem(i) {
 }
 /* Item page: a big preview, then buy / wear / colour */
 let curItem = null;
-const SCENIC = ['garden', 'pet', 'bg', 'fence', 'ground'], UNDER_COSTUME = ['hair', 'hat', 'neck', 'outfit'];
+const SCENIC = ['garden', 'pet', 'bg', 'fence', 'ground', 'lights'], UNDER_COSTUME = ['hair', 'hat', 'neck', 'outfit'];
 function sheetItem(id, still) {
   const i = ITEM_MAP[id]; if (!i) return;
   curItem = id;
@@ -229,7 +229,7 @@ function sheetItem(id, still) {
     if (UNDER_COSTUME.includes(i.cat)) delete eq.costume;
     pic = potatoSVG(eq, 'happy', 200);
   }
-  const verb = i.cat === 'garden' ? ['Put in the garden', 'Take out of the garden'] : i.cat === 'pet' ? ['Bring along', 'Send home'] : FIXED_SLOTS.includes(i.cat) ? ['Use this', ''] : ['Wear', 'Take off'];
+  const verb = i.cat === 'garden' ? ['Put in the garden', 'Take out of the garden'] : i.cat === 'pet' ? ['Bring along', 'Send home'] : i.cat === 'lights' ? ['Hang them up', 'Take them down'] : FIXED_SLOTS.includes(i.cat) ? ['Use this', ''] : ['Wear', 'Take off'];
   let act;
   if (i.gift && !owned) act = '<div class="note center">🎁 Arrives as a gift on 1 December.</div>';
   else if (!owned) act = S.coins >= i.price ? `<button class="btn" data-a="buyItem">Buy for ${COIN} ${i.price}</button>` : `<button class="btn" disabled>${COIN} ${i.price}</button><p class="center muted small" style="margin-top:8px">You need ${i.price - S.coins} more coins.</p>`;
@@ -239,8 +239,9 @@ function sheetItem(id, still) {
   const colours = !t ? '' : !owned ? '<p class="center muted small" style="margin-top:12px">🎨 You can pick its colour once it is yours.</p>'
     : `<div class="listhead">Colour</div><div class="swatches">${[''].concat(PALETTE.filter(c => c !== t[0])).map(c => `<button class="sw ${c === chosen ? 'on' : ''}" data-a="tint" data-c="${c}" style="background:${c || t[0]}" aria-label="${c ? 'Colour' : 'Original colour'}"></button>`).join('')}</div>`;
   const swap = !on && SINGLE_SUBS.includes(i.sub) && S.garden.some(x => x !== id && ITEM_MAP[x] && ITEM_MAP[x].sub === i.sub) ? `<p class="center muted small" style="margin-top:10px">One at a time: this takes the place of the ${esc(ITEM_MAP[S.garden.find(x => x !== id && ITEM_MAP[x] && ITEM_MAP[x].sub === i.sub)].name.toLowerCase())}.</p>` : '';
+  const beachNote = i.cat === 'lights' && S.equipped.bg === 'beach' && S.equipped.fence === 'picket' ? '<p class="center muted small" style="margin-top:10px">The beach has no fence, so pick another fence to see the lights.</p>' : '';
   const hidden = owned && on && UNDER_COSTUME.includes(i.cat) && S.equipped.costume ? '<p class="center muted small" style="margin-top:10px">Hidden while a costume is on.</p>' : '';
-  openSheet(`${shHead(esc(i.name))}<div class="sh-body"><div class="preview ${SCENIC.includes(i.cat) ? 'scenic' : ''}">${pic}</div>${act}${swap}${hidden}${colours}</div>`, true);
+  openSheet(`${shHead(esc(i.name))}<div class="sh-body"><div class="preview ${SCENIC.includes(i.cat) ? 'scenic' : ''}">${pic}</div>${act}${swap}${beachNote}${hidden}${colours}</div>`, true);
   if (still) $('#sheet').style.animation = 'none';
 }
 function itemChanged() { save(); const y = window.scrollY; render(); window.scrollTo(0, y); sheetItem(curItem, true); }
@@ -250,7 +251,7 @@ function viewPotato() {
   const sect = (title, items) => `<div class="listhead">${title}</div><div class="shop">${items.map(shopItem).join('')}</div>`;
   const shop = shopTab === 'clothes'
     ? CATS.map(([cat, title]) => sect(title, ITEMS.filter(i => i.cat === cat))).join('')
-    : GARDEN_SUBS.map(sub => sect(sub, ITEMS.filter(i => i.sub === sub))).join('') + sect('Pets', ITEMS.filter(i => i.cat === 'pet')) + sect('Fences', ITEMS.filter(i => i.cat === 'fence')) + sect('Ground', ITEMS.filter(i => i.cat === 'ground')) + sect('Scenery', ITEMS.filter(i => i.cat === 'bg'));
+    : GARDEN_SUBS.map(sub => sect(sub, ITEMS.filter(i => i.sub === sub))).join('') + sect('Pets', ITEMS.filter(i => i.cat === 'pet')) + sect('Fences', ITEMS.filter(i => i.cat === 'fence')) + sect('Fence lights', ITEMS.filter(i => i.cat === 'lights')) + sect('Ground', ITEMS.filter(i => i.cat === 'ground')) + sect('Scenery', ITEMS.filter(i => i.cat === 'bg'));
   return `<div class="head"><h1 class="grow">My garden</h1><span class="pill">🔥 ${st.n}</span><span class="pill">${COIN} ${S.coins}</span></div>
   <div class="gardenwrap">${gardenSVG(S.equipped, S.garden, hasLog(today()) ? 'happy' : 'sleepy', S.advent.placed)}<div class="bubble">${potatoSays()}</div>${S.owned.includes('xmastree') ? '<button class="btn ghost sm" style="margin-top:10px" data-a="openTree">🎄 Decorate the Christmas tree</button>' : ''}</div>
   <div class="seg shoptabs"><button class="${shopTab === 'clothes' ? 'on' : ''}" data-a="shopTab" data-t="clothes">👕 Clothes</button><button class="${shopTab === 'garden' ? 'on' : ''}" data-a="shopTab" data-t="garden">🌻 Garden</button></div>
