@@ -100,8 +100,9 @@ document.addEventListener('change', async ev => {
 
 let aiRes = null, aiBusy = false;
 
-// Free Gemini models, tried in order: if one is missing or has used up its free quota for now, the next one is asked.
-const AI_MODELS = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+// Free Gemini models, tried in order: if one is missing, overloaded, too slow or has used up its free quota, the next one is asked.
+// Flash-Lite comes first: on the free tier Google often turns the bigger Flash models away as overloaded (error 503).
+const AI_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-3.8-flash'];
 
 const AI_JSON_RULE = `
 
@@ -119,10 +120,11 @@ async function aiCall(system, input, schema, fast) {
   if (!S.aiModel || typeof S.aiModel !== 'object') S.aiModel = {};
   // Start with the model and request form that answered last time (for a few hours), so a busy model is not asked again on every question.
   const m = S.aiModel[memo], pref = m && Date.now() - m.t < 3 * 3600 * 1000 && AI_MODELS.includes(m.m) ? m.m : null;
-  const base = fast ? AI_MODELS.slice().reverse() : AI_MODELS;
+  const base = AI_MODELS, t0 = Date.now(), seen = new Set();
   const order = pref ? [pref].concat(base.filter(x => x !== pref)) : base;
   let last = null;
   for (const model of order) {
+    if (Date.now() - t0 > 70000) break;   // stop after about a minute rather than keep her waiting
     const start = model === pref && m.f < formats.length ? m.f : 0;
     for (let fi = start; fi < formats.length; fi++) {
       let res;
@@ -135,7 +137,7 @@ async function aiCall(system, input, schema, fast) {
         });
       } catch (e) {
         clearTimeout(timer);
-        if (e && e.name === 'AbortError') { last = { status: 504, msg: '' }; break; }   // too slow: try the next model
+        if (e && e.name === 'AbortError') { last = { status: 504, msg: '' }; seen.add('slow'); break; }   // too slow: try the next model
         throw new Error('No connection. The AI helper needs internet.');
       }
       clearTimeout(timer);
@@ -145,13 +147,13 @@ async function aiCall(system, input, schema, fast) {
       if (res.ok) { if (model !== pref || fi !== m.f) { S.aiModel[memo] = { m: model, f: fi, t: Date.now() }; persist(); } return aiJson(data); }
       const msg = (data && data.error && data.error.message) || '';
       if (res.status === 401 || res.status === 403 || /api key/i.test(msg)) throw new Error('The AI key was not accepted. Check it in the Me tab.');
-      last = { status: res.status, msg };
+      last = { status: res.status, msg }; seen.add(res.status === 429 ? 'limit' : res.status >= 500 ? 'busy' : 'other');
       if (res.status !== 400) break;        // 400 = this request form was not understood: try the next form
     }
     if (last.status !== 400 && last.status !== 404 && last.status !== 429 && last.status < 500) break;   // only a missing, busy or used-up model is worth another try
   }
-  if (last.status === 429) throw new Error('The free AI limit is used up for now. Try again later or tomorrow.');
-  if (last.status >= 500) throw new Error('The AI is busy right now. Try again in a moment.');
+  if (seen.has('limit') && !seen.has('busy') && !seen.has('slow')) throw new Error('The free AI limit is used up for now. Try again later or tomorrow.');
+  if (seen.has('busy') || seen.has('slow') || seen.has('limit')) throw new Error("Google's free AI servers are overloaded right now" + (seen.has('limit') ? ' and some of the free limit is used up' : '') + '. Try again in a few minutes.');
   throw new Error('The AI could not answer' + (last.msg ? ': ' + last.msg : '.'));
 }
 function aiJson(data) {
